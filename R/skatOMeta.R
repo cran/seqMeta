@@ -14,8 +14,9 @@ skatOMeta <- function(..., SNPInfo=NULL, skat.wts = function(maf){dbeta(maf,1,25
 	cohortNames <- lapply(cl[[2]],as.character)
 	ncohort <- length(cohortNames)
 	
-	classes <- unlist(lapply(cohortNames,function(name){class(get(name,envir=parent.frame()))})) 
-	if(!all(classes == "seqMeta" | classes == "skatCohort") ){
+	ev <- parent.frame()
+	classes <- unlist(lapply(cohortNames,function(name){class(get(name,envir=ev))})) 	
+  if(!all(classes == "seqMeta" | classes == "skatCohort") ){
 	 	stop("an argument to ... is not a seqMeta object!")
 	}
 		
@@ -36,19 +37,19 @@ skatOMeta <- function(..., SNPInfo=NULL, skat.wts = function(maf){dbeta(maf,1,25
 		nsnps.sub <- length(snp.names.list[[gene]])
 		
 		mscores <- maf <- numeric(nsnps.sub)
-		big.cov <- matrix(0, nsnps.sub,nsnps.sub)
+		big.cov <- Matrix(0, nsnps.sub,nsnps.sub)
 		n.total <- numeric(nsnps.sub)
 		n.miss <- numeric(nsnps.sub)
 		
 		vary.ave <- 0
 		for(cohort.k in 1:ncohort){
-			cohort.gene <- get(cohortNames[[cohort.k]],envir=parent.frame())[[gene]]
+			cohort.gene <- get(cohortNames[[cohort.k]],envir=ev)[[gene]]
 			
 			if(!is.null(cohort.gene)){
 				sub <- match(snp.names.list[[gene]],colnames(cohort.gene$cov))
 				if(any(is.na(sub)) | any(sub != 1:length(sub), na.rm=TRUE) | length(cohort.gene$maf) > nsnps.sub){
 							#if(any(is.na(sub))) warning("Some SNPs were not in SNPInfo file for gene ", gene," and cohort ",names(cohorts)[cohort.k])
-							cohort.gene$cov <- as.matrix(cohort.gene$cov)[sub,sub,drop=FALSE]
+							cohort.gene$cov <- Matrix(cohort.gene$cov)[sub,sub,drop=FALSE]
 							cohort.gene$cov[is.na(sub),] <- cohort.gene$cov[,is.na(sub)] <- 0
 							
 							cohort.gene$maf <- cohort.gene$maf[sub]
@@ -83,62 +84,66 @@ skatOMeta <- function(..., SNPInfo=NULL, skat.wts = function(maf){dbeta(maf,1,25
 				maf <- maf[keep]
 			}
 		}
-		
-		if(is.function(skat.wts)){
-			w1 <- skat.wts(maf)
-		} else if(is.character(skat.wts)){
-			w1 <- as.numeric(SNPInfo[SNPInfo[,aggregateBy]==gene,skat.wts])
+		if(length(maf)> 0){
+		  if(is.function(skat.wts)){
+		    w1 <- skat.wts(maf)
+		  } else if(is.character(skat.wts)){
+		    w1 <- as.numeric(SNPInfo[SNPInfo[,aggregateBy]==gene,skat.wts])
+		  } else {
+		    w1 <- rep(1,length(maf))
+		  }
+		  
+		  if(is.function(burden.wts)){
+		    w2 <- burden.wts(maf)
+		  } else if(is.character(burden.wts)){
+		    w2 <- as.numeric(SNPInfo[SNPInfo[,aggregateBy]==gene,burden.wts])
+		  } else {
+		    w2 <- rep(1,length(maf))
+		  }
+		  
+		  w1 <- ifelse(maf >0, w1,0)
+		  w2 <- ifelse(maf >0, w2,0)
+		  
+		  ##
+		  Q.skat <- sum((w1*mscores)^2, na.rm=TRUE)
+		  V.skat <- (w1)*t(t(big.cov)*as.vector(w1))
+		  
+		  Q.burden <- sum(w2*mscores, na.rm=TRUE)^2
+		  V.burden <- as.numeric(t(w2)%*%big.cov%*%w2)
+		  
+		  #If burden test is 0, or only 1 SNP in the gene, do SKAT:
+		  if(sum(maf > 0) ==1 | V.burden ==0){
+		    lambda <- eigen(zapsmall(V.skat), symmetric = TRUE)$values
+		    if(any(lambda > 0) & length(lambda) >1) {
+		      tmpP <- pchisqsum2(Q.skat,lambda=lambda,method=method, acc=1e-7)
+		      if(tmpP$errflag !=0 ){ 
+		        res.numeric[ri,"errflag"] = 1
+		      } else {
+		        res.numeric[ri,"errflag"] = 0
+		      }
+		      p <- tmpP$p
+		    } else {
+		      p <- ifelse(length(lambda) == 1 & all(lambda > 0), pchisq(Q.skat/lambda,df=1,lower.tail=FALSE),1)
+		      res.numeric[ri,"errflag"] = 0
+		    }
+		    res.numeric[ri,"pmin"] = res.numeric[ri,"p"] = p
+		    res.numeric[ri,"rho"] = 0
+		    
+		    
+		    #Else do SKAT-O
+		  } else {
+		    skato.res <- skatO_getp(mscores, big.cov, diag(w1), w2, rho, method= method, gene=gene)
+		    
+		    res.numeric[ri,"p"] <- skato.res$actualp
+		    res.numeric[ri,"pmin"] = skato.res$minp
+		    res.numeric[ri,"rho"] = skato.res$rho    	
+		    res.numeric[ri, "errflag"] = skato.res$errflag
+		  }
 		} else {
-			w1 <- rep(1,length(maf))
-		}
-		
-		if(is.function(burden.wts)){
-			w2 <- burden.wts(maf)
-		} else if(is.character(burden.wts)){
-			w2 <- as.numeric(SNPInfo[SNPInfo[,aggregateBy]==gene,burden.wts])
-		} else {
-			w2 <- rep(1,length(maf))
-		}
-		
-		w1 <- ifelse(maf >0, w1,0)
-		w2 <- ifelse(maf >0, w2,0)
-		
-		##
-		Q.skat <- sum((w1*mscores)^2, na.rm=TRUE)
-		V.skat <- (w1)*t(t(big.cov)*as.vector(w1))
-
-		Q.burden <- sum(w2*mscores, na.rm=TRUE)^2
-		V.burden <- as.numeric(t(w2)%*%big.cov%*%w2)
-		
-		#If burden test is 0, or only 1 SNP in the gene, do SKAT:
-		if(sum(maf > 0) ==1 | V.burden ==0){
-			lambda <- eigen(zapsmall(V.skat), symmetric = TRUE)$values
-        	if(any(lambda > 0) & length(lambda) >1) {
-        		tmpP <- pchisqsum2(Q.skat,lambda=lambda,method=method, acc=1e-7)
-        		if(tmpP$errflag !=0 ){ 
-        			res.numeric[ri,"errflag"] = 1
-        		} else {
-        			res.numeric[ri,"errflag"] = 0
-        		}
-        		p <- tmpP$p
-        	} else {
-            	p <- ifelse(length(lambda) == 1 & all(lambda > 0), pchisq(Q.skat/lambda,df=1,lower.tail=FALSE),1)
-            	res.numeric[ri,"errflag"] = 0
-        	}
- 			res.numeric[ri,"pmin"] = res.numeric[ri,"p"] = p
-			res.numeric[ri,"rho"] = 0
-			
-		
-		#Else do SKAT-O
-		} else {
-			skato.res <- skatO_getp(mscores, big.cov, diag(w1), w2, rho, method= method, gene=gene)
-
-	    	res.numeric[ri,"p"] <- skato.res$actualp
-			res.numeric[ri,"pmin"] = skato.res$minp
-			res.numeric[ri,"rho"] = skato.res$rho    	
-    		res.numeric[ri, "errflag"] = skato.res$errflag
-    	}
-    			
+		  res.numeric[ri,"p"] <- res.numeric[ri,"pmin"] <- 1
+		  res.numeric[ri,"rho"] <- 0
+      res.numeric[ri, "errflag"] <- 0
+		}			
 		res.numeric[ri,"cmaf"] = sum(maf,na.rm=TRUE)
 		res.numeric[ri,"nsnps"] = sum(maf!= 0, na.rm =T)
 		res.numeric[ri,"nmiss"] = sum(n.miss, na.rm =T)

@@ -9,7 +9,8 @@ skatMeta <- function(..., SNPInfo=NULL, wts = function(maf){dbeta(maf,1,25)}, me
 	cohortNames <- lapply(cl[[2]],as.character)
 	ncohort <- length(cohortNames)
 	
-	classes <- unlist(lapply(cohortNames,function(name){class(get(name,envir=parent.frame()))})) 
+	ev <- parent.frame()
+	classes <- unlist(lapply(cohortNames,function(name){class(get(name,envir=ev))})) 
 	if(!all(classes == "seqMeta" | classes == "skatCohort") ){
 	 	stop("an argument to ... is not a seqMeta object!")
 	}
@@ -34,7 +35,7 @@ skatMeta <- function(..., SNPInfo=NULL, wts = function(maf){dbeta(maf,1,25)}, me
 		
 		vary.ave <- 0
 		for(cohort.k in 1:ncohort){
-			cohort.gene <- get(cohortNames[[cohort.k]],envir=parent.frame())[[gene]]
+			cohort.gene <- get(cohortNames[[cohort.k]],envir=ev)[[gene]]
 			
 			if(!is.null(cohort.gene)){
 				#cohort.gene <- lapply(cohort.gene,function(x){replace(x,is.nan(x),0)})
@@ -90,17 +91,16 @@ skatMeta <- function(..., SNPInfo=NULL, wts = function(maf){dbeta(maf,1,25)}, me
 		}
 		tmpwts <- as.numeric(tmpwts)
 		
-		Qmeta <- sum((tmpwts*mscores)^2, na.rm=TRUE)
-		wcov <- tmpwts*t(t(big.cov)*tmpwts)
-		#wcov[is.nan(wcov)] <- 0
-		
-		if(ncol(wcov) > 0){
+		if(length(maf) > 0){
+		  Qmeta <- sum((tmpwts*mscores)^2, na.rm=TRUE)
+		  wcov <- tmpwts*t(t(big.cov)*tmpwts)
 			lambda<-eigen(zapsmall(wcov),symmetric=TRUE)$values
-    	} else {
-    		lambda <- 0
-    	}
+    } else {
+    	Qmeta <- 0
+      lambda <- 0
+    }
     	
-    	if(any(lambda > 0)){
+    if(any(lambda > 0)){
     		p<-pchisqsum2(Qmeta,lambda,method=method)$p
 		} else {
 			p<-1

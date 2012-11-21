@@ -1,5 +1,6 @@
 \name{prepScores}
 \alias{prepScores}
+\alias{prepScoresX}
 \alias{prepCox}
 %\alias{skatCoxCohort}
 %- Also NEED an '\alias' for EACH other topic documented here.
@@ -17,6 +18,10 @@ prepScores(Z, formula, family = gaussian(), SNPInfo=NULL,
 	snpNames = "Name", aggregateBy = "gene", kins=NULL, sparse = TRUE,
 	data=parent.frame(), verbose = FALSE)
 
+prepScoresX(Z, formula, male, family = gaussian(), SNPInfo=NULL, 
+  snpNames = "Name", aggregateBy = "gene", kins=NULL, sparse = TRUE,
+	data=parent.frame(), verbose = FALSE)
+
 prepCox(Z, formula, SNPInfo=NULL, snpNames = "Name", aggregateBy = "gene", 
 	data=parent.frame(), verbose =FALSE)
 }
@@ -27,6 +32,9 @@ prepCox(Z, formula, SNPInfo=NULL, snpNames = "Name", aggregateBy = "gene",
 	}
   \item{formula}{
 	Base formula, of the kind used in glm() - typically of the form y~covariate1 + covariate2. For Cox models, the formula follows that of the coxph() function.
+}
+\item{male}{
+  For analyzing the X chromosome, with prepScoresX, `male' is the gender (0/1 or F/T) indicating female/male. See details.
 }
   \item{family}{
  	either gaussian(), for continuous data, or binomial() for 0/1 outcomes. Binary outcomes are not currently supported for family data.
@@ -60,6 +68,7 @@ A crucial component of SKAT and other region-based tests is a common unit of agg
 	
 Using \code{prepScores}, users are strongly recommended to use all SNPs, even if they are monomorphic in your study. This is for two reasons; firstly, monomorphic SNPs provide information about MAF across all studies; without providing the information we are unable to tell if a missing SNP data was monomorphic in a study, or simply failed to genotype adequately in that study.  Second, even if some SNPs will be filtered out of a particular meta-analysis (e.g., because they are intronic or common) construct ing seqMeta objects describing all SNPs will reduce the workload for subsequent follow-up analyses.
 
+In order to analyze the X chromosome, use \code{prepScoresX}, with the additional argument \code{male}. Here, it is assumed that \code{Z} is coded 0/2 for males, 0/1/2 for females. \code{male} is needed to calculate of allele frequencies, used in imputation, and for weighting. Output from prepScoresX is handled just as output from prepScores. 
 
 Note: to view results for a single study, one can pass a single seqMeta object to a function for meta-analysis.		
 }
