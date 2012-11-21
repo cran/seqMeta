@@ -2,7 +2,7 @@ singlesnpMeta <- function(..., SNPInfo=NULL, snpNames = "Name", aggregateBy = "g
 	cl <- match.call(expand.dots=FALSE)
 	if(is.null(SNPInfo)){ 
 		warning("No SNP Info file provided: loading the Illumina HumanExome BeadChip. See ?SNPInfo for more details")
-		load(paste(find.package("skatMeta"), "data", "SNPInfo.rda",sep = "/"))
+		load(paste(find.package("seqMeta"), "data", "SNPInfo.rda",sep = "/"))
 		aggregateBy = "SKATgene"
 	}
 	genelist <- na.omit(unique(SNPInfo[,aggregateBy]))
@@ -54,7 +54,7 @@ singlesnpMeta <- function(..., SNPInfo=NULL, snpNames = "Name", aggregateBy = "g
 				sub <- match(snp.names.list[[gene]],colnames(cohort.gene$cov))
 				if(any(is.na(sub)) | any(sub != 1:length(sub), na.rm=TRUE) | length(cohort.gene$maf) > nsnps.sub){
 						#if(any(is.na(sub))) warning("Some SNPs were not in SNPInfo file for gene ", gene," and cohort ",cohort.names[[cohort.k]])		
-						cohort.gene$cov <-  cohort.gene$cov[na.omit(sub),na.omit(sub),drop=FALSE]
+						cohort.gene$cov <-  as.matrix(cohort.gene$cov)[sub,sub,drop=FALSE]
 						cohort.gene$cov[is.na(sub),] <- cohort.gene$cov[,is.na(sub)] <- 0
 						
 						cohort.gene$maf <- cohort.gene$maf[sub]
@@ -74,25 +74,30 @@ singlesnpMeta <- function(..., SNPInfo=NULL, snpNames = "Name", aggregateBy = "g
 					vary.ave <- vary.ave + max(cohort.gene$n,na.rm=T)*cohort.gene$sey^2
 		
 					if(studyBetas){
-						resdf.cohort[ri,paste(c("beta"),cohort.names[cohort.k] ,sep=".")] <- cohort.gene$score/diag(cohort.gene$cov)
-						resdf.cohort[ri,paste(c("se"), cohort.names[cohort.k] ,sep=".")] <- cohort.gene$sey/sqrt(diag(cohort.gene$cov))
+						resdf.cohort[ri,paste(c("beta"),cohort.names[cohort.k] ,sep=".")] <- ifelse(diag(cohort.gene$cov) >0,
+							cohort.gene$score/diag(cohort.gene$cov),
+							NA)
+						resdf.cohort[ri,paste(c("se"), cohort.names[cohort.k] ,sep=".")] <- ifelse(diag(cohort.gene$cov) >0,
+							cohort.gene$sey/sqrt(diag(cohort.gene$cov)),
+							Inf)
 					}
 			} else {
 				n.miss <- n.miss + get(cohortNames[[cohort.k]],envir=parent.frame())[[1]]$n
 			} 
 		}
+		
 		vary.ave <- vary.ave/n.total
 
 		maf <- maf/(2*n.total)
 		maf[is.nan(maf)] <- 0
 		maf <- sapply(maf, function(x){min(x,1-x)})
 				
-		res.numeric[ri,c("beta","se","maf","nmiss","ntotal","p")] <- cbind( ifelse(scorevar !=0, mscore/scorevar, NA),
-																	sqrt(1/scorevar),
-																	maf,
-																	n.miss,
-																	n.total,
-																	ifelse(scorevar !=0, pchisq(mscore^2/scorevar,lower.tail=FALSE,df=1), NA))
+		res.numeric[ri,"beta"] <- ifelse(scorevar !=0, mscore/scorevar, NA)
+		res.numeric[ri,"se"] <- sqrt(1/scorevar)
+		res.numeric[ri,"maf"] <- maf
+		res.numeric[ri,"nmiss"] <- n.miss
+		res.numeric[ri,"ntotal"] <- n.total
+		res.numeric[ri,"p"] <- ifelse(scorevar !=0, pchisq(mscore^2/scorevar,lower.tail=FALSE,df=1), NA)
 
 		if(verbose){
 			pb.i <- pb.i+1

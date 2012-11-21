@@ -17,7 +17,7 @@
 %% almost as usual
 %\author{Arend Voorman\\University of Washington 
 % others}
-\title{seqMeta: an R Package for meta analyzing region-based tests of
+\title{seqMeta: an R Package for meta-analyzing region-based tests of
 rare DNA variants}
 
 %% for pretty printing and a nice hypersummary also set:
@@ -93,7 +93,7 @@ requires meta-analysis of score vectors and their covariance
 matrices. However, meta-analyzing covariance matrices is cumbersome,
 as they are 2-dimensional structures of various sizes and cannot be
 easily stored for a whole study in an
-array. The purpose of the \pkg{seqMeta} package is to facilitate meta analysis of region-based score tests,
+array. The purpose of the \pkg{seqMeta} package is to facilitate meta-analysis of region-based score tests,
 such as SKAT, through convenient data structures for handling the
 components of the tests. There is some software available for similar
 analyses, for instance the MASS program
@@ -128,7 +128,7 @@ The rest of this document is organized as follows. Section
 continuous outcomes in unrelated individuals
 (Section~\ref{sec:unrelated}), and related individuals
 (Section \ref{sec:family}). Section~\ref{sec:meta} describes the
-functions used at the meta analysis level for SKAT (Section~\ref{sec:skat}),
+functions used at the meta-analysis level for SKAT (Section~\ref{sec:skat}),
 burden tests (Section~\ref{sec:burden}) and single SNP tests
 (Section~\ref{sec:ss}). Section~\ref{sec:other} describes
 modifications for binary and survival
@@ -236,20 +236,20 @@ linkage format. To convert this format into to the required kinship matrix, the
 package is recommended; see these packages documentation for
 details \citep{kinship2}. Note that family data is currently only supported for continuous outcomes.
 
-\section{Meta analysis}\label{sec:meta}
+\section{Meta-analysis}\label{sec:meta}
 The results of the one or more individual studies can be
 meta-analyzed using the functions \verb=skatMeta=, \verb=skatOMeta=, \verb=burdenMeta=, or
 \verb=singlesnpMeta= for SKAT, SKAT-O, burden tests and
 individual SNPs respectively. Regardless of the individual
 analysis (related or unrelated individuals with continuous, binary or
-survival outcomes) the meta analysis procedure is the same. Each of
+survival outcomes) the meta-analysis procedure is the same. Each of
 these meta-analysis functions has a similar
 syntax, and contains the arguments
 
 \begin{itemize}
 \item \verb=...=  One or more \verb=prepScores= objects to be meta-analyzed.
   \item\verb=SNPInfo= The SNP Info file, listing genes and SNPs to be
-    included in the meta analysis. This is in the same format as the
+    included in the meta-analysis. This is in the same format as the
     SNPInfo file in \verb=prepScores=, and should use the same naming
     convention for SNPs and genes.
    \item\verb=snpNames= The field of SNPInfo where the SNP identifiers are found. Default is \verb=Name=
@@ -266,7 +266,7 @@ syntax, and contains the arguments
 Each of the functions permits additional arguments, which we detail in
 their corresponding sections. 
 
-\subsection{Meta analyzing SKAT}\label{sec:skat}
+\subsection{Meta-analyzing SKAT}\label{sec:skat}
 The SKAT test is a weighted sum of individual score statistics
 $$Q = \sum_j w^2_jU_j^2$$
 where $w_j$ is a weight and $U_j$ is the score statistic for for the
@@ -284,7 +284,7 @@ method of $p$-values calculation. The default is
 practice. See the documentation of \verb=pchisqsum= and
 Section~\ref{sec:method} for more details. 
 
-For example, below is a meta analysis of the SKAT test.  Here we have
+For example, below is a meta-analysis of the SKAT test.  Here we have
 use the default  testing weights \verb=wts = dbeta(maf,c(1,25))=,
 often referred to as the `Wu' weights,
 which are also the default in the \pkg{SKAT} package \citep{skat}.
@@ -322,7 +322,7 @@ analysis.  This can be done by `meta-analyzing' a single study's results:
 study1.results <- skatMeta(c1, SNPInfo = SNPInfo)
 @
 
-\subsection{Meta analyzing burden tests}\label{sec:burden}
+\subsection{Meta-analyzing burden tests}\label{sec:burden}
  Another commonly used family of tests are the `burden'
 tests which regress the phenotype on a weighted sum of genotypes, within each
 gene.
@@ -370,7 +370,7 @@ SNPs, from those that are used in the test.  Also, note the genes for which no p
 inclusion criteria, and thus burden is zero for all individuals, and
 the test is undefined.
 
-\subsection{Meta analyzing SKAT-O}\label{sec:skato}
+\subsection{Meta-analyzing SKAT-O}\label{sec:skato}
 Recently, the `optimal' SKAT \citep[SKAT-O, ][]{lee2012optimal} was proposed to
 test weighted averages of SKAT and burden tests of the form
 \begin{align*}
@@ -496,7 +496,7 @@ small $p$-values.
 
 We also note here that the $p$-values for SKAT-O are close to \v{S}id\'ak correction for the minimum of SKAT and burden tests. As the number of variants increases, the SKAT and burden tests become independent. Thus, in the relatively large genes in this example, little efficiency is gained using the SKAT-O correction relative to the \v{S}id\'ak correction.
 
-\subsection{Meta analyzing single SNPs}\label{sec:ss}
+\subsection{Meta-analyzing single SNPs}\label{sec:ss}
 
 While \verb=skatMeta= and \verb=burdenMeta= perform region-based
 tests, the function \verb=singlesnpMeta= can be used to perform score
@@ -638,7 +638,7 @@ c1 <- c(c1.1, c1.2)
 class(c1)
 @ 
 
-We do not provide a method for computing the meta analysis in
+We do not provide a method for computing the meta-analysis in
 parallel.  Individual \verb=prepScores= objects are usually under 20
 megabytes, and can be processed sufficiently quickly that
 parallelization is typically not warranted.
@@ -690,7 +690,7 @@ genotype argument \verb=Z=, which prevents \proglang{R}! from copying
 potentially large genotype matrices.  In addition, the
 sample size and minor allele count are also stored. 
 
-\subsection{Meta analysis}
+\subsection{Meta-analysis}
 Each function \verb=skatMeta=, \verb=burdenMeta=, and \verb=singlesnpMeta=
 first begins by meta-analyzing the scores and their variances across
 all studies, for each unique gene name in the \verb=SNPInfo= file. This follows the simple formulas  
@@ -858,7 +858,7 @@ In this paper, we have described the basic usage and syntax of the
 \pkg{seqMeta} \proglang{R} package.  This includes functions for computing
 study level results with the functions \verb=prepScores= for continuous and binary traits
 and \verb=prepCox= for survival outcomes. We also describe the
-functions that pool study level results for meta analysis, including
+functions that pool study level results for meta-analysis, including
 \verb=skatMeta=, \verb=burdenMeta=, \verb=skatOMeta= and \verb=singlesnpMeta=.  
 % where $W = \mathrm{diag}(w_1,\dots,w_p)$, $G^{(k)} = [g^{(k)}_1,\dots, g^{(k)}_p]$ and $P^{(k)}$ is the adjustment matrix for covariates (i.e. $P^{(k)}y^{(k)} = y^{(k)}-\hat y^{(k)}$).  
 
@@ -870,6 +870,128 @@ functions that pool study level results for meta analysis, including
 
 %\bibliographystyle{plainnat}
 
-\input{seqMeta.bbl}
+\begin{thebibliography}{17}
+\newcommand{\enquote}[1]{``#1''}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\providecommand{\urlprefix}{URL }
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi:\discretionary{}{}{}#1}\else
+  \providecommand{\doi}{doi:\discretionary{}{}{}\begingroup
+  \urlstyle{rm}\Url}\fi
+\providecommand{\eprint}[2][]{\url{#2}}
+
+\bibitem[{Chen \emph{et~al.}(2013)Chen, Meigs, and Dupuis}]{chen2012sequence}
+Chen H, Meigs J, Dupuis J (2013).
+\newblock \enquote{Sequence Kernel Association Test for Quantitative Traits in
+  Family Samples.}
+\newblock \emph{Genetic Epidemiology}, \textbf{37}(2), 196--204.
+
+\bibitem[{Duchesne and de~Micheaux(2010)}]{compquadform}
+Duchesne P, de~Micheaux PL (2010).
+\newblock \enquote{Computing the distribution of quadratic forms: Further
+  comparisons between the Liu-Tang-Zhang approximation and exact methods.}
+\newblock \emph{Computational Statistics and Data Analysis}, \textbf{54},
+  858--862.
+
+\bibitem[{Lee(2013)}]{metaskat}
+Lee S (2013).
+\newblock \emph{MetaSKAT: Meta analysis for SNP-set (Sequence) Kernel
+  Association Test}.
+\newblock R package version 0.27,
+  \urlprefix\url{http://CRAN.R-project.org/package=MetaSKAT}.
+
+\bibitem[{Lee \emph{et~al.}(2013)Lee, Miropolsky, and Wu}]{skat}
+Lee S, Miropolsky L, Wu M (2013).
+\newblock \emph{SKAT: SNP-set (Sequence) Kernel Association Test}.
+\newblock R package version 0.82,
+  \urlprefix\url{http://CRAN.R-project.org/package=SKAT}.
+
+\bibitem[{Lee \emph{et~al.}(2012)Lee, Wu, and Lin}]{lee2012optimal}
+Lee S, Wu MC, Lin X (2012).
+\newblock \enquote{Optimal tests for rare variant effects in sequencing
+  association studies.}
+\newblock \emph{Biostatistics}, \textbf{13}(4), 762--775.
+
+\bibitem[{Li and Leal(2008)}]{li2008methods}
+Li B, Leal SM (2008).
+\newblock \enquote{Methods for detecting associations with rare variants for
+  common diseases: application to analysis of sequence data.}
+\newblock \emph{The American Journal of Human Genetics}, \textbf{83}(3),
+  311--321.
+
+\bibitem[{Lin and Zeng(2010)}]{lin2010relative}
+Lin D, Zeng D (2010).
+\newblock \enquote{On the relative efficiency of using summary statistics
+  versus individual-level data in meta-analysis.}
+\newblock \emph{Biometrika}, \textbf{97}(2), 321--332.
+
+\bibitem[{Lumley(2004)}]{lumley2004analysis}
+Lumley T (2004).
+\newblock \enquote{Analysis of complex survey samples.}
+\newblock \emph{Journal of Statistical Software}, \textbf{9}(1), 1--19.
+
+\bibitem[{Lumley \emph{et~al.}(2012)Lumley, Brody, Dupuis, and
+  Cupples}]{lumleymeta}
+Lumley T, Brody J, Dupuis J, Cupples A (2012).
+\newblock \enquote{Meta-analysis of a rare-variant association test.}
+\newblock \emph{Technical report}, University of Auckland.
+\newblock
+  \urlprefix\url{http://stattech.wordpress.fos.auckland.ac.nz/files/2012/11/skat-meta-paper.pdf}.
+
+\bibitem[{Lumley and Scott(2013)}]{lumley2013partial}
+Lumley T, Scott A (2013).
+\newblock \enquote{Partial likelihood ratio tests for the Cox model under
+  complex sampling.}
+\newblock \emph{Statistics in Medicine}, \textbf{32}(1), 110--123.
+
+\bibitem[{Madsen and Browning(2009)}]{madsen2009groupwise}
+Madsen BE, Browning SR (2009).
+\newblock \enquote{A groupwise association test for rare mutations using a
+  weighted sum statistic.}
+\newblock \emph{PLoS genetics}, \textbf{5}(2), e1000384.
+
+\bibitem[{{R Development Core Team}(2009)}]{R}
+{R Development Core Team} (2009).
+\newblock \emph{R: A Language and Environment for Statistical Computing}.
+\newblock R Foundation for Statistical Computing, Vienna, Austria.
+\newblock {ISBN} 3-900051-07-0, \urlprefix\url{http://www.R-project.org}.
+
+\bibitem[{Therneau(2012)}]{coxme}
+Therneau T (2012).
+\newblock \emph{coxme: Mixed Effects Cox Models.}
+\newblock R package version 2.2-3,
+  \urlprefix\url{http://CRAN.R-project.org/package=coxme}.
+
+\bibitem[{Therneau \emph{et~al.}(2012)Therneau, Atkinson, Sinnwell, Matsumoto,
+  Schaid, and McDonnell}]{kinship2}
+Therneau T, Atkinson E, Sinnwell J, Matsumoto M, Schaid D, McDonnell S (2012).
+\newblock \emph{kinship2: Pedigree functions}.
+\newblock R package version 1.3.7,
+  \urlprefix\url{http://CRAN.R-project.org/package=kinship2}.
+
+\bibitem[{Therneau(1999)}]{survival}
+Therneau TM (1999).
+\newblock \enquote{A package for survival analysis in S.}
+\newblock \emph{Technical report}, Mayo Foundation.
+\newblock \urlprefix\url{http://www. mayo. edu/hsr/people/therneau/survival.
+  ps}.
+
+\bibitem[{Voorman \emph{et~al.}(2012)Voorman, Rice, and
+  Lumley}]{voorman2012fast}
+Voorman A, Rice K, Lumley T (2012).
+\newblock \enquote{Fast computation for genome-wide association studies using
+  boosted one-step statistics.}
+\newblock \emph{Bioinformatics}, \textbf{28}(14), 1818--1822.
+
+\bibitem[{Wu \emph{et~al.}(2011)Wu, Lee, Cai, Li, Boehnke, and
+  Lin}]{wu2011rare}
+Wu M, Lee S, Cai T, Li Y, Boehnke M, Lin X (2011).
+\newblock \enquote{Rare-variant association testing for sequencing data with
+  the sequence kernel association test.}
+\newblock \emph{The American Journal of Human Genetics}, \textbf{89}(1),
+  82--93.
+
+\end{thebibliography}
 
 \end{document}

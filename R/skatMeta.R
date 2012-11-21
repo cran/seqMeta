@@ -2,7 +2,7 @@ skatMeta <- function(..., SNPInfo=NULL, wts = function(maf){dbeta(maf,1,25)}, me
 	cl <- match.call(expand.dots = FALSE)
 	if(is.null(SNPInfo)){ 
 		warning("No SNP Info file provided: loading the Illumina HumanExome BeadChip. See ?SNPInfo for more details")
-		load(paste(find.package("skatMeta"), "data", "SNPInfo.rda",sep = "/"))
+		load(paste(find.package("seqMeta"), "data", "SNPInfo.rda",sep = "/"))
 		aggregateBy = "SKATgene"
 	}
 	genelist <- na.omit(unique(SNPInfo[,aggregateBy]))
@@ -41,7 +41,7 @@ skatMeta <- function(..., SNPInfo=NULL, wts = function(maf){dbeta(maf,1,25)}, me
 				sub <- match(snp.names.list[[gene]],colnames(cohort.gene$cov))
 				if(any(is.na(sub)) | any(sub != 1:length(sub), na.rm=TRUE) | length(cohort.gene$maf) > nsnps.sub){
 							#if(any(is.na(sub))) warning("Some SNPs were not in SNPInfo file for gene ", gene," and cohort ",names(cohorts)[cohort.k])
-							cohort.gene$cov <- cohort.gene$cov[na.omit(sub),na.omit(sub),drop=FALSE]
+							cohort.gene$cov <- as.matrix(cohort.gene$cov)[sub,sub,drop=FALSE]
 							cohort.gene$cov[is.na(sub),] <- cohort.gene$cov[,is.na(sub)] <- 0
 							
 							cohort.gene$maf <- cohort.gene$maf[sub]

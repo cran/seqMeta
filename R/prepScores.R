@@ -26,8 +26,7 @@ prepScores <- function(Z, formula, family = gaussian(), SNPInfo=NULL, snpNames =
 			data$id <- colnames(kins)
 		}
 		
-		#nullmodel <- coxme:::lmekin(formula=update(formula, '~.+ (1|id)'), data=data[oo,], varlist = 2*kins[oo,oo],method="REML")	
-		nullmodel <- coxme:::lmekin(formula=update(formula, '~.+ (1|id)'), data=data, varlist = 2*kins,method="REML")	
+		nullmodel <- lmekin(formula=update(formula, '~.+ (1|id)'), data=data, varlist = 2*kins,method="REML")	
 		nullmodel$theta <- c(nullmodel$vcoef$id*nullmodel$sigma^2,nullmodel$sigma^2)
 	
 		SIGMA <- nullmodel$theta[1]*2*kins+nullmodel$theta[2]*Diagonal(n)
