@@ -1,0 +1,5 @@
+export(prepCondScores, prepScores, prepCox, skatMeta, burdenMeta, singlesnpMeta, skatOMeta)
+useDynLib(seqMeta)
+import(Matrix)
+S3method(c, seqMeta)
+S3method(c, skatCohort)
