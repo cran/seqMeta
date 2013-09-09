@@ -1,5 +1,5 @@
 prepCox <- function(Z, formula, SNPInfo=NULL, snpNames = "Name", aggregateBy = "gene", data=parent.frame(), verbose =FALSE){
-	require(survival)
+	#require(survival)
 	env <- environment()
 	if(is.null(SNPInfo)){ 
 		warning("No SNP Info file provided: loading the Illumina HumanExome BeadChip. See ?SNPInfo for more details")

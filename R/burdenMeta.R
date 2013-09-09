@@ -47,7 +47,7 @@ burdenMeta <- function(..., SNPInfo=NULL, wts = 1, snpNames = "Name", aggregateB
 				#cohort.gene <- lapply(cohort.gene,function(x){replace(x,is.nan(x),0)})
 				sub <- match(snp.names.list[[gene]],colnames(cohort.gene$cov))
 				if(any(is.na(sub)) | any(sub != 1:length(sub), na.rm=TRUE) | length(cohort.gene$maf) > nsnps.sub){
-						cohort.gene$cov <- cohort.gene$cov[na.omit(sub),na.omit(sub),drop=FALSE]
+						cohort.gene$cov <- as.matrix(cohort.gene$cov)[sub,sub,drop=FALSE]
 						cohort.gene$cov[is.na(sub),] <- cohort.gene$cov[,is.na(sub)] <- 0
 						
 						cohort.gene$maf <- cohort.gene$maf[sub]
