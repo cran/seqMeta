@@ -92,9 +92,8 @@ prepCox <- function(Z, formula, SNPInfo=NULL, snpNames = "Name", aggregateBy = "
 			zvar <- apply(Z0,2,var)
 			mod1 <- coxlr.fit(cbind(Z0[,zvar !=0],X), nullmodel$y, nullmodel$strata, NULL,
 	       		init=c(rep(0,ncol(Z0[,zvar !=0,drop=FALSE])),nullcoef),coxph.control(iter.max=0),NULL,"efron",rn)
-	       	mcov[which(!is.na(inds))[zvar !=0], which(!is.na(inds))[zvar !=0]] <- tryCatch(
-	       		with(svd(mod1$var[1:sum(zvar !=0),1:sum(zvar !=0),drop=FALSE]), 
-	       			v[,d > 0,drop=FALSE]%*%( (1/d[d>0])*t(u[, d > 0,drop=FALSE]))), 
+	        mcov[which(!is.na(inds))[zvar !=0], which(!is.na(inds))[zvar !=0]] <- tryCatch(
+	        	ginv_s(mod1$var[1:sum(zvar !=0),1:sum(zvar !=0),drop=FALSE]),
 	       		error=function(e){
 	       			cov(Z0[nullmodel$y[,"status"]==1,zvar !=0,drop=FALSE])*(sum(nullmodel$y[,"status"]==1)-1)
 	       			})
@@ -116,3 +115,21 @@ prepCox <- function(Z, formula, SNPInfo=NULL, snpNames = "Name", aggregateBy = "
 	class(re) <- "seqMeta"
 	return(re)
 }
+
+
+ginv_s <- function (X, tol = sqrt(.Machine$double.eps)) 
+{
+    if (length(dim(X)) > 2L || !(is.numeric(X) || is.complex(X))) 
+        stop("'X' must be a numeric or complex matrix")
+    if (!is.matrix(X)) 
+        X <- as.matrix(X)
+    Xe <- eigen(X,symmetric=TRUE)
+    Positive <- Xe$values > max(tol * Xe$values[1L], 0)
+    if (all(Positive)) 
+        Xe$v %*% (1/Xe$d * t(Xe$u))
+    else if (!any(Positive)) 
+        array(0, dim(X)[2L:1L])
+    else Xe$vectors[, Positive, drop = FALSE] %*% ((1/Xe$values[Positive]) * 
+        t(Xe$vectors[, Positive, drop = FALSE]))
+}
+

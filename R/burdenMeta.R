@@ -10,8 +10,9 @@ burdenMeta <- function(..., SNPInfo=NULL, wts = 1, snpNames = "Name", aggregateB
 	cohortNames <- lapply(cl[[2]],as.character)
 	ncohort <- length(cohortNames)
 	
-	classes <- unlist(lapply(cohortNames,function(name){class(get(name,envir=parent.frame()))})) 
-	if(!all(classes == "seqMeta" | classes == "skatCohort") ){
+	ev <- parent.frame()
+	classes <- unlist(lapply(cohortNames,function(name){class(get(name,envir=ev))})) 	
+  if(!all(classes == "seqMeta" | classes == "skatCohort") ){
 	 	stop("an argument to ... is not a seqMeta object!")
 	}
 	
@@ -41,7 +42,7 @@ burdenMeta <- function(..., SNPInfo=NULL, wts = 1, snpNames = "Name", aggregateB
 		
 		vary.ave <- 0
 		for(cohort.k in 1:ncohort){
-			cohort.gene <- get(cohortNames[[cohort.k]],envir=parent.frame())[[gene]]
+			cohort.gene <- get(cohortNames[[cohort.k]],envir=ev)[[gene]]
 			
 			if(!is.null(cohort.gene)){
 				#cohort.gene <- lapply(cohort.gene,function(x){replace(x,is.nan(x),0)})
