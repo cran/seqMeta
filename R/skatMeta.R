@@ -73,14 +73,6 @@ skatMeta <- function(..., SNPInfo=NULL, wts = function(maf){dbeta(maf,1,25)}, me
 			big.cov[flip,!flip] <- -big.cov[flip,!flip]
 			big.cov[!flip,flip] <- -big.cov[!flip,flip]
 			maf <- pmin(maf,1-maf)
-		
-			if( !all(mafRange == c(0,0.5))){
-				keep <- (maf >= min(mafRange)) & (maf <= max(mafRange))
-				
-				big.cov <- big.cov[keep,keep]
-				mscores <- mscores[keep]
-				maf <- maf[keep]
-			}
 		}
 		if(is.function(wts)){
 			tmpwts <- ifelse(maf > 0, wts(maf),0)
@@ -91,6 +83,11 @@ skatMeta <- function(..., SNPInfo=NULL, wts = function(maf){dbeta(maf,1,25)}, me
 		}
 		tmpwts <- as.numeric(tmpwts)
 		
+		if( !all(mafRange == c(0,0.5))){
+		  keep <- (maf >= min(mafRange)) & (maf <= max(mafRange))
+      	  tmpwts[!keep] <- 0
+		}
+    
 		if(length(maf) > 0){
 		  Qmeta <- sum((tmpwts*mscores)^2, na.rm=TRUE)
 		  wcov <- tmpwts*t(t(big.cov)*tmpwts)
@@ -107,8 +104,8 @@ skatMeta <- function(..., SNPInfo=NULL, wts = function(maf){dbeta(maf,1,25)}, me
 		}
 		res.numeric[ri,"p"] = p
 		res.numeric[ri,"Qmeta"] = Qmeta
-		res.numeric[ri,"cmaf"] = sum(maf,na.rm=TRUE)
-		res.numeric[ri,"nsnps"] = sum(maf!= 0, na.rm =T)
+		res.numeric[ri,"cmaf"] = sum(maf[tmpwts > 0],na.rm=TRUE)
+		res.numeric[ri,"nsnps"] = sum(maf[tmpwts > 0] != 0, na.rm =T)
 		res.numeric[ri,"nmiss"] = sum(n.miss, na.rm =T)
 		if(verbose){
 			pb.i <- pb.i+1

@@ -25,7 +25,7 @@ prepCondScores <- function(Z, formula, family = gaussian(), SNPInfo=NULL, adjust
 			})
 			data$geno.adj <- zz
 			
-			Z.sub <- subset(Z, select = colnames(Z) %in% minisnpinfo$Name,drop=FALSE)
+			Z.sub <- subset(Z, select = colnames(Z) %in% minisnpinfo[,snpNames],drop=FALSE)
 			
 			#if our sample has more snps in this gene...
 			if(ncol(Z.sub) > 0){	
