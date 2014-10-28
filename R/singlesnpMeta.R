@@ -20,8 +20,8 @@ singlesnpMeta <- function(..., SNPInfo=NULL, snpNames = "Name", aggregateBy = "g
 	
 	res.strings <- data.frame("gene"=as.character(SNPInfo[,aggregateBy]),
 					"Name" = as.character(SNPInfo[,snpNames]),stringsAsFactors=F)
-	res.numeric <- matrix(NA, nrow= nrow(res.strings),ncol =  length(c("p","maf","nmiss","ntotal", "beta" ,"se" )))
-	colnames(res.numeric) <- c("p","maf","nmiss","ntotal", "beta" ,"se" )	
+	res.numeric <- matrix(NA, nrow= nrow(res.strings),ncol =  length(c("p","maf","caf","nmiss","ntotal", "beta" ,"se" ))) # v 1.6 added caf
+	colnames(res.numeric) <- c("p","maf","caf","nmiss","ntotal", "beta" ,"se" ) # v 1.6 added caf
 					
 	if(studyBetas){
 		resdf.cohort = matrix(NA,nrow=nrow(SNPInfo),ncol=2*ncohort)
@@ -43,7 +43,7 @@ singlesnpMeta <- function(..., SNPInfo=NULL, snpNames = "Name", aggregateBy = "g
 		ri <- ris[[gene]]
 		nsnps.sub <- length(snp.names.list[[gene]])
 		
-		n.total <- n.miss <- maf <- vcount <- scorevar <- mscore <- numeric(nsnps.sub)
+		n.total <- n.miss <- maf <- caf <- vcount <- scorevar <- mscore <- numeric(nsnps.sub)
 		big.cov <- matrix(0, nsnps.sub,nsnps.sub)
 		
 		vary.ave <- 0
@@ -91,11 +91,13 @@ singlesnpMeta <- function(..., SNPInfo=NULL, snpNames = "Name", aggregateBy = "g
 
 		maf <- maf/(2*n.total)
 		maf[is.nan(maf)] <- 0
+		caf = maf ## JB v 1.5
 		maf <- sapply(maf, function(x){min(x,1-x)})
 				
 		res.numeric[ri,"beta"] <- ifelse(scorevar !=0, mscore/scorevar, NA)
 		res.numeric[ri,"se"] <- sqrt(1/scorevar)
 		res.numeric[ri,"maf"] <- maf
+		res.numeric[ri,"caf"] <- caf #JB v 1.5
 		res.numeric[ri,"nmiss"] <- n.miss
 		res.numeric[ri,"ntotal"] <- n.total
 		res.numeric[ri,"p"] <- ifelse(scorevar !=0, pchisq(mscore^2/scorevar,lower.tail=FALSE,df=1), NA)
