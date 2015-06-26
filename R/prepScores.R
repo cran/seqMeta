@@ -1,10 +1,140 @@
-prepScores <- function(Z, formula, family = gaussian(), SNPInfo=NULL, snpNames = "Name", aggregateBy = "gene", kins = NULL, sparse= TRUE, data=parent.frame(), verbose = FALSE){
+#' @title Prepare scores for region based (meta) analysis
+#'   
+#' @description This function computes and organizes the neccesary output to 
+#'   efficiently meta-analyze SKAT and other tests. Note that the tests are 
+#'   *not* computed by these functions. The output must be passed to one of 
+#'   \code{\link[seqMeta]{skatMeta}}, \code{\link[seqMeta]{burdenMeta}}, or 
+#'   \code{\link[seqMeta]{singlesnpMeta}}.
+#'   
+#'   Unlike the SKAT package which operates on one gene at a time, these 
+#'   functions are intended to operate on many genes, e.g. a whole exome, to 
+#'   facilitate meta analysis of whole genomes or exomes.
+#'   
+#' @param Z A genotype matrix (dosage matrix) - rows correspond to individuals 
+#'   and columns correspond to SNPs. Use 'NA' for missing values. The column 
+#'   names of this matrix should correspond to SNP names in the SNP information 
+#'   file.
+#' @param formula Base formula, of the kind used in glm() - typically of the 
+#'   form y~covariate1 + covariate2. For Cox models, the formula follows that of
+#'   the coxph() function.
+#' @param family either gaussian(), for continuous data, or binomial() for 0/1
+#'   outcomes. Binary outcomes are not currently supported for family data.
+#' @param SNPInfo SNP Info file - must contain fields given in 'snpName' and 
+#'   'aggregateBy'.
+#' @param snpNames The field of SNPInfo where the SNP identifiers are found. 
+#'   Default is 'Name'.  See Details.
+#' @param aggregateBy The field of SNPInfo on which the skat results were 
+#'   aggregated. Default is 'gene'. For single snps which are intended only for 
+#'   single variant analyses, it is recomended that they have a unique 
+#'   identifier in this field.
+#' @param data  data frame in which to find variables in the formula
+#' @param kins  the kinship matrix for related individuals. Only supported for 
+#'   family=gaussian(). See lmekin in the kinship2 package for more details.
+#' @param sparse  whether or not to use a sparse Matrix approximation for dense 
+#'   kinship matrices (defaults to TRUE).
+#' @param verbose  logical. whether or not to print the progress bar.
+#'   
+#' @details This function computes the neccesary information to meta analyze 
+#'   SKAT analyses: the individual SNP scores, their MAF, and a covariance 
+#'   matrix for each unit of aggregation. Note that the SKAT test is *not* 
+#'   calculated by this function. The output must be passed to one of 
+#'   \code{\link[seqMeta]{skatMeta}}, \code{\link[seqMeta]{burdenMeta}}, or 
+#'   \code{\link[seqMeta]{singlesnpMeta}}.
+#'   
+#'   A crucial component of SKAT and other region-based tests is a common unit 
+#'   of aggregation accross studies. This is given in the SNP information file 
+#'   (argument \code{SNPInfo}), which pairs SNPs to a unit of aggregation 
+#'   (typically a gene). The additional arguments \code{snpNames} and 
+#'   \code{aggregateBy} specify the columns of the SNP information file which 
+#'   contain these pairings. Note that the column names of the genotype matrix 
+#'   \code{Z} must match the names given in the \code{snpNames} field.
+#'   
+#'   Using \code{prepScores}, users are strongly recommended to use all SNPs, 
+#'   even if they are monomorphic in your study. This is for two reasons; 
+#'   firstly, monomorphic SNPs provide information about MAF across all studies;
+#'   without providing the information we are unable to tell if a missing SNP 
+#'   data was monomorphic in a study, or simply failed to genotype adequately in
+#'   that study. Second, even if some SNPs will be filtered out of a particular 
+#'   meta-analysis (e.g., because they are intronic or common) constructing 
+#'   seqMeta objects describing all SNPs will reduce the workload for subsequent
+#'   follow-up analyses.
+#'   
+#'   Note: to view results for a single study, one can pass a single seqMeta 
+#'   object to a function for meta-analysis.
+#'   
+#' @return an object of class 'seqMeta'. This is a list, not meant for human 
+#'   consumption, but to be fed to \code{skatMeta()} or another function. The 
+#'   names of the list correspond to gene names. Each element in the list 
+#'   contains
+#'   
+#'   \item{scores}{The scores (y-yhat)^t g}
+#'   \item{cov}{The variance of the scores. When no covariates are used, this is the LD matrix.}
+#'   \item{n}{The number of subjects}
+#'   \item{maf}{The minor allele frequency}
+#'   \item{sey}{The residual standard error.}
+#'   
+#' @note For \code{prepCox}, the signed likelihood ratio statistic is used 
+#'   instead of the score, as the score test is anti-conservative for 
+#'   proportional hazards regression. The code for this routine is based on the 
+#'   \code{coxph.fit} function from the \code{survival} package.
+#'   
+#'   Please see the package vignette for more details.
+#'   
+#' @author Arie Voorman, Jennifer Brody
+#' 
+#' @references Wu, M.C., Lee, S., Cai, T., Li, Y., Boehnke, M., and Lin, X. (2011) Rare Variant Association Testing for Sequencing Data Using the Sequence Kernel Association Test (SKAT). American Journal of Human Genetics.
+#' 
+#' Chen H, Meigs JB, Dupuis J. Sequence Kernel Association Test for Quantitative Traits in Family Samples. Genetic Epidemiology. (To appear)
+#' 
+#' Lin, DY and Zeng, D. On the relative efficiency of using summary statistics versus individual-level data in meta-analysis. Biometrika. 2010.
+#' 
+#' @seealso \code{\link[seqMeta]{skatMeta}} \code{\link[seqMeta]{burdenMeta}} \code{\link[seqMeta]{singlesnpMeta}} \code{\link[seqMeta]{skatOMeta}} \code{\link[survival]{coxph}}
+#' @examples
+#' ###load example data for two studies:
+#' ### see ?seqMetaExample
+#' data(seqMetaExample)
+#' 
+#' ####run on each cohort:
+#' cohort1 <- prepScores(Z=Z1, y~sex+bmi, SNPInfo = SNPInfo, data =pheno1)
+#' cohort2 <- prepScores(Z=Z2, y~sex+bmi, SNPInfo = SNPInfo, kins=kins, data=pheno2)
+#' 
+#' #### combine results:
+#' ##skat
+#' out <- skatMeta(cohort1, cohort2, SNPInfo = SNPInfo)
+#' head(out)
+#' 
+#' ##T1 test
+#' out.t1 <- burdenMeta(cohort1,cohort2, SNPInfo = SNPInfo, mafRange = c(0,0.01))
+#' head(out.t1)
+#' 
+#' ##single snp tests:
+#' out.ss <- singlesnpMeta(cohort1,cohort2, SNPInfo = SNPInfo)
+#' head(out.ss)
+#' \dontrun{
+#' ########################
+#' ####binary data
+#' cohort1 <- prepScores(Z=Z1, ybin~1, family=binomial(), SNPInfo = SNPInfo, data =pheno1)
+#' out <- skatMeta(cohort1, SNPInfo = SNPInfo)
+#' head(out)
+#' 
+#' ####################
+#' ####survival data
+#' cohort1 <- prepCox(Z=Z1, Surv(time,status)~strata(sex)+bmi, SNPInfo = SNPInfo, data =pheno1)
+#' out <- skatMeta(cohort1, SNPInfo = SNPInfo)
+#' head(out)
+#' }
+#' @name prepScores
+#' @export
+prepScores <- function(Z, formula, family=gaussian(), SNPInfo=NULL, snpNames="Name", aggregateBy="gene", kins=NULL, sparse=TRUE, data=parent.frame(), verbose=FALSE) {
 	#fit Null model
 	if(is.null(SNPInfo)){ 
 		warning("No SNP Info file provided: loading the Illumina HumanExome BeadChip. See ?SNPInfo for more details")
 		load(paste(find.package("skatMeta"), "data", "SNPInfo.rda",sep = "/"))
 		aggregateBy = "SKATgene"
+	} else {
+	  SNPInfo <- prepSNPInfo(SNPInfo, snpNames, aggregateBy)
 	}
+	
 
 	if(!is.null(kins)){
 		n <- dim(kins)[1]
@@ -94,8 +224,10 @@ prepScores <- function(Z, formula, family = gaussian(), SNPInfo=NULL, snpNames =
 	
 	if(verbose) close(pb)
 	
-	#deal with monomorphic SNPs
-	scores[maf == 0] <- 0
+	#deal with monomorphic SNPs (Fix issue #2 bd)
+	monos <- monomorphic_snps(Z)
+	scores[names(scores) %in% monos] <- 0
+# 	scores[maf == 0] <- 0
 	
 	#differentiate missing from monomorphic:
 	maf[!(SNPInfo[,snpNames] %in% colnames(Z))] <- -1
@@ -122,13 +254,15 @@ prepScores <- function(Z, formula, family = gaussian(), SNPInfo=NULL, snpNames =
 		inds <- match(snp.names,colnames(Z))
 		mcov <- matrix(0,length(snp.names),length(snp.names))
 		if(length(na.omit(inds)) > 0){
-			Z0 <- sqrt(nullmodel$family$var(nullmodel$fitted))*as.matrix(Z[,na.omit(inds),drop=FALSE])
+		  Z0 <- as.matrix(Z[,na.omit(inds),drop=FALSE])
+#			Z0 <- sqrt(nullmodel$family$var(nullmodel$fitted))*as.matrix(Z[,na.omit(inds),drop=FALSE])
 			if(any(is.na(Z0))) Z0 <- apply(Z0,2,function(z){
 			  if(all(is.na(z))) z <- rep(0,length(z))
        			mz <- mean(z, na.rm=TRUE)
 				z[is.na(z)] <- mz
 				z
 			})
+			Z0 <- sqrt(nullmodel$family$var(nullmodel$fitted))*Z0
 			if(!is.null(kins)){
 				mcov[!is.na(inds), !is.na(inds)] <- as.matrix(t(Z0)%*%Om_i%*%Z0 - (t(Z0)%*%Om_i%*%X1)%*%(AX1%*%Z0))
 			} else {
@@ -140,6 +274,10 @@ prepScores <- function(Z, formula, family = gaussian(), SNPInfo=NULL, snpNames =
 				assign("pb.i", get("pb.i",env)+1,env)
 				if(get("pb.i", env)%%ceiling(ngenes/100) == 0) setTxtProgressBar(get("pb",env),get("pb.i",env))		  
 		}
+    # set monomorphic inds to 0
+    mono_snps <- intersect(snp.names, monos)
+		mcov[mono_snps , ] <- 0
+		mcov[ , mono_snps] <- 0
 		return(forceSymmetric(Matrix(mcov,sparse=TRUE)))
 	},simplify = FALSE)
 	sey = sqrt(var(res)*(nrow(X1)-1)/(nrow(X1)-ncol(X1)) )
@@ -185,14 +323,21 @@ getcc <- function(M){
 	return(membership)
 }
 
-
+#' @rdname prepScores
+#' @param male For analyzing the X chromosome, with prepScoresX, `male' is the
+#'   gender (0/1 or F/T) indicating female/male. See details.
+#' @export
 prepScoresX <- function(Z, formula, male, family = gaussian(), SNPInfo=NULL, snpNames = "Name", aggregateBy = "gene", kins = NULL, sparse= TRUE, data=parent.frame(), verbose = FALSE){
   #fit Null model
   if(is.null(SNPInfo)){ 
     warning("No SNP Info file provided: loading the Illumina HumanExome BeadChip. See ?SNPInfo for more details")
     load(paste(find.package("skatMeta"), "data", "SNPInfo.rda",sep = "/"))
     aggregateBy = "SKATgene"
+  } else {
+    SNPInfo <- prepSNPInfo(SNPInfo, snpNames, aggregateBy)
   }
+  
+  
   cl <- match.call()
   
   
@@ -324,7 +469,8 @@ prepScoresX <- function(Z, formula, male, family = gaussian(), SNPInfo=NULL, snp
     inds <- match(snp.names,colnames(Z))
     mcov <- matrix(0,length(snp.names),length(snp.names))
     if(length(na.omit(inds)) > 0){
-      Z0 <- sqrt(nullmodel$family$var(nullmodel$fitted))*as.matrix(Z[,na.omit(inds),drop=FALSE])
+      Z0 <- as.matrix(Z[,na.omit(inds),drop=FALSE])
+#       Z0 <- sqrt(nullmodel$family$var(nullmodel$fitted))*as.matrix(Z[,na.omit(inds),drop=FALSE])
       if(any(is.na(Z0))) Z0 <- apply(Z0,2,function(z){
         naz <- is.na(z)
         if(any(naz)){
@@ -338,7 +484,7 @@ prepScoresX <- function(Z, formula, male, family = gaussian(), SNPInfo=NULL, snp
         }
         z
       })
-      Z0 <- Z0
+      Z0 <- sqrt(nullmodel$family$var(nullmodel$fitted))*Z0
       if(!is.null(kins)){
         mcov[!is.na(inds), !is.na(inds)] <- as.matrix(t(Z0)%*%Om_i%*%Z0 - (t(Z0)%*%Om_i%*%X1)%*%(AX1%*%Z0))
       } else {
