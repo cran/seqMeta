@@ -35,7 +35,7 @@ pchisqsum2 <- function(Q, lambda, delta = rep(0,length(lambda)), method=c("saddl
 saddle <- function (x, lambda,delta=rep(0,length(lambda))){
    	if(x==0) return(1)
     if(length(lambda) ==1){
-      return(pchisq(x/lambda,df=1,ncp=delta,lower.tail=FALSE))
+      return(stats::pchisq(x/lambda,df=1,ncp=delta,lower.tail=FALSE))
     }
     d <- max(lambda)
     lambda <- lambda/d
@@ -62,10 +62,10 @@ saddle <- function (x, lambda,delta=rep(0,length(lambda))){
         lmin <- -length(lambda)/(2 * x)
     }
     lmax <- min(1/(2 * lambda[lambda > 0])) * 0.99999
-    hatzeta <- uniroot(function(zeta) kprime0(zeta) - x, lower = lmin, 
+    hatzeta <- stats::uniroot(function(zeta) kprime0(zeta) - x, lower = lmin, 
         upper = lmax, tol = 1e-08)$root
     w <- sign(hatzeta) * sqrt(2 * (hatzeta * x - k0(hatzeta)))
     v <- hatzeta * sqrt(kpprime0(hatzeta))
     if (abs(hatzeta) < 1e-04) return(NA)
-    else return(pnorm(w + log(v/w)/w, lower.tail = FALSE))
+    else return(stats::pnorm(w + log(v/w)/w, lower.tail = FALSE))
 }

@@ -119,7 +119,7 @@
 #' }
 #' 
 #' @export
-skatMeta <- function(..., SNPInfo=NULL, wts=function(maf){ dbeta(maf,1,25) }, method="saddlepoint", snpNames="Name", aggregateBy="gene", mafRange=c(0,0.5), verbose=FALSE) {
+skatMeta <- function(..., SNPInfo=NULL, wts=function(maf){ stats::dbeta(maf,1,25) }, method="saddlepoint", snpNames="Name", aggregateBy="gene", mafRange=c(0,0.5), verbose=FALSE) {
 	cl <- match.call(expand.dots = FALSE)
 	if(is.null(SNPInfo)){ 
 		warning("No SNP Info file provided: loading the Illumina HumanExome BeadChip. See ?SNPInfo for more details")
@@ -129,7 +129,7 @@ skatMeta <- function(..., SNPInfo=NULL, wts=function(maf){ dbeta(maf,1,25) }, me
 	  SNPInfo <- prepSNPInfo(SNPInfo, snpNames, aggregateBy, wt1=wts)
 	}
 	
-	genelist <- na.omit(unique(SNPInfo[,aggregateBy]))
+	genelist <- stats::na.omit(unique(SNPInfo[,aggregateBy]))
 	cohortNames <- lapply(cl[[2]],as.character)
 	ncohort <- length(cohortNames)
 	
@@ -145,7 +145,7 @@ skatMeta <- function(..., SNPInfo=NULL, wts=function(maf){ dbeta(maf,1,25) }, me
 	
     if(verbose){
     	cat("\n Meta Analyzing... Progress:\n")
-    	pb <- txtProgressBar(min = 0, max = length(genelist), style = 3)
+    	pb <- utils::txtProgressBar(min = 0, max = length(genelist), style = 3)
     	pb.i <- 0
     }
     ri <- 0
@@ -233,7 +233,7 @@ skatMeta <- function(..., SNPInfo=NULL, wts=function(maf){ dbeta(maf,1,25) }, me
 		res.numeric[ri,"nmiss"] = sum(n.miss, na.rm =T)
 		if(verbose){
 			pb.i <- pb.i+1
-			setTxtProgressBar(pb, pb.i)
+			utils::setTxtProgressBar(pb, pb.i)
 		}
 	}	
 	if(verbose) close(pb)

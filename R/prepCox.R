@@ -14,9 +14,9 @@ prepCox <- function(Z, formula, SNPInfo=NULL, snpNames = "Name", aggregateBy = "
   #fit null model: 
   nullmodel <- coxph(formula=formula,data=data)
   nullmodel$strata <- eval(parse(text=rownames(attr(nullmodel$terms, "factors"))[attr(nullmodel$terms, "specials")$strata]), envir=data) # necessary for stratified analysis - 2014-10-07 - HC
-  X<-model.matrix(nullmodel,data)
-  rn<-row.names(model.frame(nullmodel,data=data))
-  nullcoef<-coef(nullmodel)
+  X<-stats::model.matrix(nullmodel,data)
+  rn<-row.names(stats::model.frame(nullmodel,data=data))
+  nullcoef<-stats::coef(nullmodel)
   
   ##match snps in Z with master list in SNPInfo file 
   mysnps <- colnames(Z)
@@ -34,7 +34,7 @@ prepCox <- function(Z, formula, SNPInfo=NULL, snpNames = "Name", aggregateBy = "
   
   if(verbose){
     cat("\n Calculating signed LRTs... Progress:\n")
-    pb <- txtProgressBar(min = 0, max = nsnps, style = 3)
+    pb <- utils::txtProgressBar(min = 0, max = nsnps, style = 3)
     pb.i <- 0
   }
   
@@ -54,11 +54,11 @@ prepCox <- function(Z, formula, SNPInfo=NULL, snpNames = "Name", aggregateBy = "
     }
     if (verbose){
       assign("pb.i", get("pb.i",env)+1,env)
-      if(get("pb.i", env)%%ceiling(nsnps/100) == 0) setTxtProgressBar(get("pb",env),get("pb.i",env))
+      if(get("pb.i", env)%%ceiling(nsnps/100) == 0) utils::setTxtProgressBar(get("pb",env),get("pb.i",env))
     }
     model<- coxlr.fit(cbind(z,X), nullmodel$y, nullmodel$strata, NULL,
                       init=c(0,nullcoef),coxph.control(iter.max=100),NULL,"efron",rn)
-    return(sign(coef(model)[1])*sqrt(2*diff(model$loglik)))
+    return(sign(stats::coef(model)[1])*sqrt(2*diff(model$loglik)))
   })[ZtoSI]
   names(zlrt) <- SNPInfo[,snpNames]
   zlrt[is.na(zlrt)] <- 0
@@ -78,7 +78,7 @@ prepCox <- function(Z, formula, SNPInfo=NULL, snpNames = "Name", aggregateBy = "
   ngenes <- length(unique(SNPInfo[,aggregateBy]))
   if(verbose){
     cat("\n Calculating covariance... Progress:\n")
-    pb <- txtProgressBar(min = 0, max = ngenes, style = 3)
+    pb <- utils::txtProgressBar(min = 0, max = ngenes, style = 3)
     pb.i <- 0
   }
   
@@ -86,29 +86,29 @@ prepCox <- function(Z, formula, SNPInfo=NULL, snpNames = "Name", aggregateBy = "
   re <- as.list(by(SNPInfo[,snpNames], SNPInfo[,aggregateBy],function(snp.names){
     inds <- match(snp.names,colnames(Z))
     mcov <- matrix(0,length(snp.names),length(snp.names))
-    if(length(na.omit(inds)) > 0){
-      Z0 <- as.matrix(Z[,na.omit(inds),drop=FALSE])
+    if(length(stats::na.omit(inds)) > 0){
+      Z0 <- as.matrix(Z[,stats::na.omit(inds),drop=FALSE])
       if(any(is.na(Z0))) Z0 <- apply(Z0,2,function(z){
         if(all(is.na(z))) z <- rep(0,length(z))
         mz <- mean(z, na.rm=TRUE)
         z[is.na(z)] <- mz
         z
       })
-      zvar <- apply(Z0,2,var)
+      zvar <- apply(Z0,2,stats::var)
       mod1 <- coxlr.fit(cbind(Z0[,zvar !=0],X), nullmodel$y, nullmodel$strata, NULL,
                         init=c(rep(0,ncol(Z0[,zvar !=0,drop=FALSE])),nullcoef),coxph.control(iter.max=0),NULL,"efron",rn)
-      mcov[which(!is.na(inds))[zvar !=0], which(!is.na(inds))[zvar !=0]] <- tryCatch(
-        ginv_s(mod1$var[1:sum(zvar !=0),1:sum(zvar !=0),drop=FALSE]),
-        error=function(e){
-          cov(Z0[nullmodel$y[,"status"]==1,zvar !=0,drop=FALSE])*(sum(nullmodel$y[,"status"]==1)-1)
-        })
+      mcov[which(!is.na(inds))[zvar !=0], which(!is.na(inds))[zvar !=0]] <- if(ncol(X) == 0) mod1$var_i
+      	else mod1$var_i[1:sum(zvar !=0),1:sum(zvar !=0),drop=FALSE] - 
+      	mod1$var_i[1:sum(zvar !=0),(1+sum(zvar !=0)):(ncol(X)+sum(zvar !=0)),drop=FALSE] %*% crossprod(ginv_s(
+      	mod1$var_i[(1+sum(zvar !=0)):(ncol(X)+sum(zvar !=0)),(1+sum(zvar !=0)):(ncol(X)+sum(zvar !=0)),drop=FALSE]), 
+      	mod1$var_i[(1+sum(zvar !=0)):(ncol(X)+sum(zvar !=0)),1:sum(zvar !=0),drop=FALSE])
     }
     rownames(mcov) <- colnames(mcov) <- snp.names
     if(verbose){
       assign("pb.i", get("pb.i",env)+1,env)
-      if(get("pb.i", env)%%ceiling(ngenes/100) == 0) setTxtProgressBar(get("pb",env),get("pb.i",env))		  
+      if(get("pb.i", env)%%ceiling(ngenes/100) == 0) utils::setTxtProgressBar(get("pb",env),get("pb.i",env))		  
     }
-    return(forceSymmetric(Matrix(mcov,sparse=TRUE)))
+    return(Matrix::forceSymmetric(Matrix(mcov,sparse=TRUE)))
   }),simplify = FALSE)
   
   ##aggregate

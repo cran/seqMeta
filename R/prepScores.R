@@ -70,7 +70,7 @@
 #'   \item{scores}{The scores (y-yhat)^t g}
 #'   \item{cov}{The variance of the scores. When no covariates are used, this is the LD matrix.}
 #'   \item{n}{The number of subjects}
-#'   \item{maf}{The minor allele frequency}
+#'   \item{maf}{The alternate allele frequency}
 #'   \item{sey}{The residual standard error.}
 #'   
 #' @note For \code{prepCox}, the signed likelihood ratio statistic is used 
@@ -125,7 +125,7 @@
 #' }
 #' @name prepScores
 #' @export
-prepScores <- function(Z, formula, family=gaussian(), SNPInfo=NULL, snpNames="Name", aggregateBy="gene", kins=NULL, sparse=TRUE, data=parent.frame(), verbose=FALSE) {
+prepScores <- function(Z, formula, family=stats::gaussian(), SNPInfo=NULL, snpNames="Name", aggregateBy="gene", kins=NULL, sparse=TRUE, data=parent.frame(), verbose=FALSE) {
 	#fit Null model
 	if(is.null(SNPInfo)){ 
 		warning("No SNP Info file provided: loading the Illumina HumanExome BeadChip. See ?SNPInfo for more details")
@@ -142,7 +142,7 @@ prepScores <- function(Z, formula, family=gaussian(), SNPInfo=NULL, snpNames="Na
 		stopifnot(family$family == "gaussian")
 		if(sparse){
 			kins[kins < 2 * 2^{-6}] <- 0
-			kins <- forceSymmetric(kins)
+			kins <- Matrix::forceSymmetric(kins)
 			#oo <- order(getcc(kins))
 		} else {
 			#oo <- 1:n
@@ -156,11 +156,11 @@ prepScores <- function(Z, formula, family=gaussian(), SNPInfo=NULL, snpNames="Na
 			data$id <- colnames(kins)
 		}
 		
-		nullmodel <- lmekin(formula=update(formula, '~.+ (1|id)'), data=data, varlist = 2*kins,method="REML")	
-		nullmodel$theta <- c(nullmodel$vcoef$id*nullmodel$sigma^2,nullmodel$sigma^2)
+		nullmodel <- coxme::lmekin(formula=update(formula, '~.+ (1|id)'), data=data, varlist = 2*kins,method="REML")	
+		nullmodel$theta <- c(nullmodel$vcoef$id, nullmodel$sigma^2)
 	
 		SIGMA <- nullmodel$theta[1]*2*kins+nullmodel$theta[2]*Diagonal(n)
-		X1 <- model.matrix(lm(formula,data=data))
+		X1 <- stats::model.matrix(stats::lm(formula, data=data))
 	
 		s2 <- sum(nullmodel$theta)
 		Om_i <- solve(SIGMA/s2)
@@ -169,15 +169,15 @@ prepScores <- function(Z, formula, family=gaussian(), SNPInfo=NULL, snpNames="Na
 		res <- as.vector(nullmodel$res)* s2 / nullmodel$theta[2]	
 		nullmodel$family$var <- function(x){1}
 	} else {
-		nullmodel <- glm(formula=formula, family = family, data=data)
-		res <- residuals(nullmodel, type = "response")
-		X1 <- model.matrix(nullmodel)
+		nullmodel <- stats::glm(formula=formula, family = family, data=data)
+		res <- stats::residuals(nullmodel, type = "response")
+		X1 <- stats::model.matrix(nullmodel)
 		n <- nrow(X1)
 	}
  
 	env <- environment()
 	##check format:
-	invisible(check_format_skat(Z, SNPInfo, nullmodel,aggregateBy, snpNames))
+	invisible(check_format_skat(Z, SNPInfo, nullmodel,aggregateBy, snpNames, formula))
 	
 	##match snps in Z with master list in SNPInfo file 
 	mysnps <- colnames(Z)
@@ -196,7 +196,7 @@ prepScores <- function(Z, formula, family=gaussian(), SNPInfo=NULL, snpNames="Na
 	
 	if(verbose){
     	cat("\n Scoring... Progress:\n")
-    	pb <- txtProgressBar(min = 0, max = nsnps, style = 3)
+    	pb <- utils::txtProgressBar(min = 0, max = nsnps, style = 3)
     	pb.i <- 0
     }
 	
@@ -215,7 +215,7 @@ prepScores <- function(Z, formula, family=gaussian(), SNPInfo=NULL, snpNames="Na
 		}
         if (verbose){
 				assign("pb.i", get("pb.i",env)+1,env)
-				if(get("pb.i", env)%%ceiling(nsnps/100) == 0) setTxtProgressBar(get("pb",env),get("pb.i",env))
+				if(get("pb.i", env)%%ceiling(nsnps/100) == 0) utils::setTxtProgressBar(get("pb",env),get("pb.i",env))
 			}
 		sum(res*z)
 		})[ZtoSI]
@@ -246,15 +246,15 @@ prepScores <- function(Z, formula, family=gaussian(), SNPInfo=NULL, snpNames="Na
 	ngenes <- length(unique(SNPInfo[,aggregateBy]))
 	if(verbose){
     	cat("\n Calculating covariance... Progress:\n")
-    	pb <- txtProgressBar(min = 0, max = ngenes, style = 3)
+    	pb <- utils::txtProgressBar(min = 0, max = ngenes, style = 3)
     	pb.i <- 0
     }
 	##get covariance matrices:
 	re <- tapply(SNPInfo[,snpNames], SNPInfo[,aggregateBy],function(snp.names){
 		inds <- match(snp.names,colnames(Z))
 		mcov <- matrix(0,length(snp.names),length(snp.names))
-		if(length(na.omit(inds)) > 0){
-		  Z0 <- as.matrix(Z[,na.omit(inds),drop=FALSE])
+		if(length(stats::na.omit(inds)) > 0){
+		  Z0 <- as.matrix(Z[,stats::na.omit(inds),drop=FALSE])
 #			Z0 <- sqrt(nullmodel$family$var(nullmodel$fitted))*as.matrix(Z[,na.omit(inds),drop=FALSE])
 			if(any(is.na(Z0))) Z0 <- apply(Z0,2,function(z){
 			  if(all(is.na(z))) z <- rep(0,length(z))
@@ -272,15 +272,15 @@ prepScores <- function(Z, formula, family=gaussian(), SNPInfo=NULL, snpNames="Na
 		rownames(mcov) <- colnames(mcov) <- snp.names
 		if(verbose){
 				assign("pb.i", get("pb.i",env)+1,env)
-				if(get("pb.i", env)%%ceiling(ngenes/100) == 0) setTxtProgressBar(get("pb",env),get("pb.i",env))		  
+				if(get("pb.i", env)%%ceiling(ngenes/100) == 0) utils::setTxtProgressBar(get("pb",env),get("pb.i",env))		  
 		}
     # set monomorphic inds to 0
     mono_snps <- intersect(snp.names, monos)
 		mcov[mono_snps , ] <- 0
 		mcov[ , mono_snps] <- 0
-		return(forceSymmetric(Matrix(mcov,sparse=TRUE)))
+		return(Matrix::forceSymmetric(Matrix(mcov,sparse=TRUE)))
 	},simplify = FALSE)
-	sey = sqrt(var(res)*(nrow(X1)-1)/(nrow(X1)-ncol(X1)) )
+	sey = sqrt(stats::var(res)*(nrow(X1)-1)/(nrow(X1)-ncol(X1)) )
 	if(family$family == "binomial") sey = 1
 	if(!is.null(kins)) 	sey = sqrt(s2)
 
@@ -327,7 +327,7 @@ getcc <- function(M){
 #' @param male For analyzing the X chromosome, with prepScoresX, `male' is the
 #'   gender (0/1 or F/T) indicating female/male. See details.
 #' @export
-prepScoresX <- function(Z, formula, male, family = gaussian(), SNPInfo=NULL, snpNames = "Name", aggregateBy = "gene", kins = NULL, sparse= TRUE, data=parent.frame(), verbose = FALSE){
+prepScoresX <- function(Z, formula, male, family = stats::gaussian(), SNPInfo=NULL, snpNames = "Name", aggregateBy = "gene", kins = NULL, sparse= TRUE, data=parent.frame(), verbose = FALSE){
   #fit Null model
   if(is.null(SNPInfo)){ 
     warning("No SNP Info file provided: loading the Illumina HumanExome BeadChip. See ?SNPInfo for more details")
@@ -347,7 +347,7 @@ prepScoresX <- function(Z, formula, male, family = gaussian(), SNPInfo=NULL, snp
     stopifnot(family$family == "gaussian")
     if(sparse){
       kins[kins < 2 * 2^{-6}] <- 0
-      kins <- forceSymmetric(kins)
+      kins <- Matrix::forceSymmetric(kins)
       #oo <- order(getcc(kins))
     } else {
       #oo <- 1:n
@@ -361,11 +361,11 @@ prepScoresX <- function(Z, formula, male, family = gaussian(), SNPInfo=NULL, snp
       data$id <- colnames(kins)
     }
     
-    nullmodel <- lmekin(formula=update(formula, '~.+ (1|id)'), data=data, varlist = 2*kins,method="REML")	
-    nullmodel$theta <- c(nullmodel$vcoef$id*nullmodel$sigma^2,nullmodel$sigma^2)
+    nullmodel <- coxme::lmekin(formula=update(formula, '~.+ (1|id)'), data=data, varlist = 2*kins,method="REML")	
+    nullmodel$theta <- c(nullmodel$vcoef$id, nullmodel$sigma^2)
     
     SIGMA <- nullmodel$theta[1]*2*kins+nullmodel$theta[2]*Diagonal(n)
-    X1 <- model.matrix(lm(formula,data=data))
+    X1 <- stats::model.matrix(stats::lm(formula, data=data))
     
     s2 <- sum(nullmodel$theta)
     Om_i <- solve(SIGMA/s2)
@@ -374,15 +374,15 @@ prepScoresX <- function(Z, formula, male, family = gaussian(), SNPInfo=NULL, snp
     res <- as.vector(nullmodel$res)* s2 / nullmodel$theta[2]	
     nullmodel$family$var <- function(x){1}
   } else {
-    nullmodel <- glm(formula=formula, family = family, data=data)
-    res <- residuals(nullmodel, type = "response")
-    X1 <- model.matrix(nullmodel)
+    nullmodel <- stats::glm(formula=formula, family = family, data=data)
+    res <- stats::residuals(nullmodel, type = "response")
+    X1 <- stats::model.matrix(nullmodel)
     n <- nrow(X1)
   }
 
   env <- environment()
   ##check format:
-  invisible(check_format_skat(Z, SNPInfo, nullmodel,aggregateBy, snpNames))
+  invisible(check_format_skat(Z, SNPInfo, nullmodel,aggregateBy, snpNames, formula))
   
   male <- eval(cl$male,data)
   if(length(male) != length(res)) stop("`male' not the same length as phenotype")
@@ -406,7 +406,7 @@ prepScoresX <- function(Z, formula, male, family = gaussian(), SNPInfo=NULL, snp
   
   if(verbose){
     cat("\n Scoring... Progress:\n")
-    pb <- txtProgressBar(min = 0, max = nsnps, style = 3)
+    pb <- utils::txtProgressBar(min = 0, max = nsnps, style = 3)
     pb.i <- 0
   }
   
@@ -432,7 +432,7 @@ prepScoresX <- function(Z, formula, male, family = gaussian(), SNPInfo=NULL, snp
     }
     if (verbose){
       assign("pb.i", get("pb.i",env)+1,env)
-      if(get("pb.i", env)%%ceiling(nsnps/100) == 0) setTxtProgressBar(get("pb",env),get("pb.i",env))
+      if(get("pb.i", env)%%ceiling(nsnps/100) == 0) utils::setTxtProgressBar(get("pb",env),get("pb.i",env))
     }
     sum(res*z)
   })[ZtoSI]
@@ -461,15 +461,15 @@ prepScoresX <- function(Z, formula, male, family = gaussian(), SNPInfo=NULL, snp
   ngenes <- length(unique(SNPInfo[,aggregateBy]))
   if(verbose){
     cat("\n Calculating covariance... Progress:\n")
-    pb <- txtProgressBar(min = 0, max = ngenes, style = 3)
+    pb <- utils::txtProgressBar(min = 0, max = ngenes, style = 3)
     pb.i <- 0
   }
   ##get covariance matrices:
   re <- tapply(SNPInfo[,snpNames], SNPInfo[,aggregateBy],function(snp.names){
     inds <- match(snp.names,colnames(Z))
     mcov <- matrix(0,length(snp.names),length(snp.names))
-    if(length(na.omit(inds)) > 0){
-      Z0 <- as.matrix(Z[,na.omit(inds),drop=FALSE])
+    if(length(stats::na.omit(inds)) > 0){
+      Z0 <- as.matrix(Z[,stats::na.omit(inds),drop=FALSE])
 #       Z0 <- sqrt(nullmodel$family$var(nullmodel$fitted))*as.matrix(Z[,na.omit(inds),drop=FALSE])
       if(any(is.na(Z0))) Z0 <- apply(Z0,2,function(z){
         naz <- is.na(z)
@@ -494,11 +494,11 @@ prepScoresX <- function(Z, formula, male, family = gaussian(), SNPInfo=NULL, snp
     rownames(mcov) <- colnames(mcov) <- snp.names
     if(verbose){
       assign("pb.i", get("pb.i",env)+1,env)
-      if(get("pb.i", env)%%ceiling(ngenes/100) == 0) setTxtProgressBar(get("pb",env),get("pb.i",env))		  
+      if(get("pb.i", env)%%ceiling(ngenes/100) == 0) utils::setTxtProgressBar(get("pb",env),get("pb.i",env))		  
     }
-    return(forceSymmetric(Matrix(mcov,sparse=TRUE)))
+    return(Matrix::forceSymmetric(Matrix(mcov,sparse=TRUE)))
   },simplify = FALSE)
-  sey = sqrt(var(res)*(nrow(X1)-1)/(nrow(X1)-ncol(X1)) )
+  sey = sqrt(stats::var(res)*(nrow(X1)-1)/(nrow(X1)-ncol(X1)) )
   if(family$family == "binomial") sey = 1
   if(!is.null(kins)) 	sey = sqrt(s2)
   

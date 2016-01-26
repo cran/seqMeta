@@ -61,7 +61,7 @@
 #'   \item{cov}{The variance of the scores. When no covariates are used, this is
 #'   the LD matrix.}
 #'   \item{n}{The number of subjects} 
-#'   \item{maf}{The minor allele frequency}
+#'   \item{maf}{The alternate allele frequency}
 #'   \item{sey}{The residual standard error.}
 #'   
 #' @note For survival models, the signed likelihood ratio statistic is used 
@@ -93,6 +93,42 @@
 #' \code{\link[seqMeta]{singlesnpMeta}} 
 #' \code{\link[seqMeta]{skatOMeta}} 
 #' 
+#' @examples
+#' ###load example data for two studies:
+#' ### see ?seqMetaExample
+#' data(seqMetaExample)
+#' 
+#' ####run on each cohort:
+#' cohort1 <- prepScores2(Z=Z1, y~sex+bmi, SNPInfo = SNPInfo, data = pheno1)
+#' cohort2 <- prepScores2(Z=Z2, y~sex+bmi, SNPInfo = SNPInfo, kins = kins, data = pheno2)
+#' 
+#' #### combine results:
+#' ##skat
+#' out <- skatMeta(cohort1, cohort2, SNPInfo = SNPInfo)
+#' head(out)
+#' 
+#' ##T1 test
+#' out.t1 <- burdenMeta(cohort1,cohort2, SNPInfo = SNPInfo, mafRange = c(0,0.01))
+#' head(out.t1)
+#' 
+#' ##single snp tests:
+#' out.ss <- singlesnpMeta(cohort1,cohort2, SNPInfo = SNPInfo)
+#' head(out.ss)
+#' \dontrun{
+#' ########################
+#' ####binary data
+#' cohort1 <- prepScores2(Z=Z1, formula = ybin~1, family = "binomial", 
+#'                        SNPInfo = SNPInfo, data = pheno1)
+#' out <- skatMeta(cohort1, SNPInfo = SNPInfo)
+#' head(out)
+#' 
+#' ####################
+#' ####survival data
+#' cohort1 <- prepScores2(Z=Z1, formula = Surv(time,status)~strata(sex)+bmi, 
+#'                        family = "cox", SNPInfo = SNPInfo, data = pheno1)
+#' out <- skatMeta(cohort1, SNPInfo = SNPInfo)
+#' head(out)
+#' }
 #' @export
 prepScores2 <- function(Z, formula, family="gaussian", SNPInfo=NULL, snpNames="Name", aggregateBy="gene", kins=NULL, sparse=TRUE, data=parent.frame(), male=NULL, verbose=FALSE) {
   
@@ -118,7 +154,7 @@ prepScores2 <- function(Z, formula, family="gaussian", SNPInfo=NULL, snpNames="N
   monos <- monomorphic_snps(Z)
   Z <- impute_to_mean(Z, male)  
 
-  re <- calculate_cov(Z, m, SNPInfo, snpNames, aggregateBy, monos, kins)
+  re <- calculate_cov(Z, m, SNPInfo, snpNames, aggregateBy, monos, kins, verbose)
   
   if (m$family == "cox") {
     zlrt <- rep.int(0, ncol(Z))
@@ -127,7 +163,7 @@ prepScores2 <- function(Z, formula, family="gaussian", SNPInfo=NULL, snpNames="N
     for(j in 1:ncol(Z)) {
       dat[ , 1] <- Z[ , j]
       model<- coxlr.fit(dat, m$y, m$strata, NULL, init=c(0,m$coef), coxph.control(iter.max=100), NULL,"efron", m$rn)
-      zlrt[j] <- sign(coef(model)[1])*sqrt(2*diff(model$loglik))
+      zlrt[j] <- sign(stats::coef(model)[1])*sqrt(2*diff(model$loglik))
     }
     zlrt[is.na(zlrt)] <- 0
     zlrt[monos] <- 0
@@ -177,17 +213,21 @@ impute_to_mean <- function(Z, male=NULL) {
         (colSums(!is.na(Z[male, ])) + 2*colSums(!is.na(Z[!male,])))
       
     }
+    
     allNA <- which(is.nan(MZ))
-    Z[ , allNA] <- 0
-    MZ[allNA] <- 0
+    if (length(allNA) > 0L) {
+      Z[ , allNA] <- 0
+      MZ[allNA] <- 0 
+    }
+
     ISNAZ <- is.na(Z) 
     idx <- which(ISNAZ)
-    Z[idx] <- MZ[((idx-1)%/%nrow(Z))+1]
     
-    Z
-  } else {
-    Z
-  }
+    if (length(idx) > 0L) {
+      Z[idx] <- MZ[((idx-1)%/%nrow(Z))+1]      
+    }
+  } 
+  Z
 }
 
 
@@ -210,7 +250,7 @@ create_model <- function(formula, family="gaussian", kins=NULL, sparse=TRUE, dat
     } 
     if(sparse){
       kins[kins < 2^{-5}] <- 0
-      kins <- forceSymmetric(kins)
+      kins <- Matrix::forceSymmetric(kins)
     }
     data$id <- if(is.null(colnames(kins))){
       1:ncol(kins)
@@ -218,16 +258,16 @@ create_model <- function(formula, family="gaussian", kins=NULL, sparse=TRUE, dat
       colnames(kins)
     }    
     
-    nullmodel <- lmekin(formula=update(formula, '~.+ (1|id)'), data=data, varlist = 2*kins,method="REML")  
+    nullmodel <- coxme::lmekin(formula=update(formula, '~.+ (1|id)'), data=data, varlist = 2*kins,method="REML")  
     
-    nullmodel$theta <- c(nullmodel$vcoef$id*nullmodel$sigma^2,nullmodel$sigma^2)   
+    nullmodel$theta <- c(nullmodel$vcoef$id, nullmodel$sigma^2)   
     SIGMA <- nullmodel$theta[1] * 2 * kins + nullmodel$theta[2] * Diagonal(nrow(kins))   
     s2 <- sum(nullmodel$theta)
     
     #rotate data:
     nullmodel$family$var <- function(x){1}
     sef <- sqrt(nullmodel$family$var(nullmodel$fitted))
-    X1 <- sef*model.matrix(lm(formula,data=data)) 
+    X1 <- sef*stats::model.matrix(stats::lm(formula,data=data)) 
     res <- as.vector(nullmodel$res)* s2 / nullmodel$theta[2]  
     Om_i <- solve(SIGMA/s2)
     # optimize calculations
@@ -237,14 +277,14 @@ create_model <- function(formula, family="gaussian", kins=NULL, sparse=TRUE, dat
     check_dropped_subjects(res, formula)
     list(res=res, family=fam, n=nrow(X1), sey=sqrt(s2), sef=sef, X1=X1, AX1=AX1, Om_i=Om_i)
   } else if (fam == "binomial" || fam == "gaussian") {
-    nullmodel <- glm(formula=formula, family=fam, data=data)
-    res <- residuals(nullmodel, type = "response")  
+    nullmodel <- stats::glm(formula=formula, family=fam, data=data)
+    res <- stats::residuals(nullmodel, type = "response")  
     check_dropped_subjects(res, formula) 
     sef <- sqrt(nullmodel$family$var(nullmodel$fitted))
-    X1 <- sef*model.matrix(nullmodel) 
+    X1 <- sef*stats::model.matrix(nullmodel) 
     AX1 <- with(svd(X1),  v[,d > 0,drop=FALSE]%*%( (1/d[d>0])*t(u[, d > 0,drop=FALSE])))     
     sey <- if (fam == "gaussian") {
-      sqrt(var(res)*(nrow(X1) - 1)/(nrow(X1) - ncol(X1)) )
+      sqrt(stats::var(res)*(nrow(X1) - 1)/(nrow(X1) - ncol(X1)) )
     } else if (fam == "binomial") {
       1
     } else {
@@ -254,81 +294,21 @@ create_model <- function(formula, family="gaussian", kins=NULL, sparse=TRUE, dat
   } else if (fam == "cox") {
     nullmodel <- coxph(formula=formula, data=data)
     strata <- eval(parse(text=rownames(attr(nullmodel$terms, "factors"))[attr(nullmodel$terms, "specials")$strata]), envir=data) # necessary for stratified analysis - 2014-10-07 - HC
-    X <- model.matrix(nullmodel, data)
-    rn <- row.names(model.frame(nullmodel,data=data))
-    nullcoef <- coef(nullmodel)
+    X <- stats::model.matrix(nullmodel, data)
+    rn <- row.names(stats::model.frame(nullmodel,data=data))
+    nullcoef <- stats::coef(nullmodel)
     
     list(X=X, family=fam, n=nrow(X), sey=1, y=nullmodel$y, strata=strata, rn=rn, coef=nullcoef)
   } else {
     stop("Unknown family type.  Only 'gaussian', 'binomial', and 'cox' are currently supported.")
   }
 }
-# create_model <- function(formula, family="gaussian", kins=NULL, sparse=TRUE, data=parent.frame()) {
-#   
-#   if (!is.character(family) || is.function(family) || is.family(family)) {
-#     fam <- family$family   
-#   } else {
-#     fam=family
-#   }
-#   if (is.null(fam)) {
-#     print(fam)
-#     stop("'family' not recognized")
-#   }
-#   
-#   if(!is.null(kins)){
-#     if (fam != "gaussian") {
-#       stop("Family data is currently only supported for continuous outcomes.")
-#     } 
-#     if(sparse){
-#       kins[kins < 2^{-5}] <- 0
-#       kins <- forceSymmetric(kins)
-#     }
-#     data$id <- if(is.null(colnames(kins))){
-#       1:ncol(kins)
-#     } else {
-#       colnames(kins)
-#     }    
-#     
-#     nullmodel <- lmekin(formula=update(formula, '~.+ (1|id)'), data=data, varlist = 2*kins,method="REML")  
-#     
-#     nullmodel$theta <- c(nullmodel$vcoef$id*nullmodel$sigma^2,nullmodel$sigma^2)   
-#     SIGMA <- nullmodel$theta[1] * 2 * kins + nullmodel$theta[2] * Diagonal(nrow(kins))   
-#     s2 <- sum(nullmodel$theta)
-#     
-#     #rotate data:
-#     nullmodel$family$var <- function(x){1}
-#     sef <- sqrt(nullmodel$family$var(nullmodel$fitted))
-#     X1 <- sef*model.matrix(lm(formula,data=data)) 
-#     res <- as.vector(nullmodel$res)* s2 / nullmodel$theta[2]  
-#     Om_i <- solve(SIGMA/s2)
-#     # optimize calculations
-#      tX1_Om_i <- crossprod(X1, Om_i)
-#      AX1 <- with(svd(tX1_Om_i%*%X1),  v[,d > 0,drop=FALSE]%*%( (1/d[d>0])*t(v[, d > 0,drop=FALSE])))%*%tX1_Om_i
-#     
-#     check_dropped_subjects(res, formula)
-#     list(res=res, family=fam, n=nrow(X1), sey=sqrt(s2), sef=sef, X1=X1, AX1=AX1, Om_i=Om_i)
-#   } else {
-#     nullmodel <- glm(formula=formula, family=fam, data=data)
-#     res <- residuals(nullmodel, type = "response")  
-#     check_dropped_subjects(res, formula) 
-#     sef <- sqrt(nullmodel$family$var(nullmodel$fitted))
-#     X1 <- sef*model.matrix(nullmodel) 
-#     AX1 <- with(svd(X1),  v[,d > 0,drop=FALSE]%*%( (1/d[d>0])*t(u[, d > 0,drop=FALSE])))     
-#     sey <- if (fam == "gaussian") {
-#       sqrt(var(res)*(nrow(X1) - 1)/(nrow(X1) - ncol(X1)) )
-#     } else if (fam == "binomial") {
-#       1
-#     } else {
-#       stop("Only family type 'binomial' and 'gaussian' are currently supported.")
-#     }   
-#     list(res=res, family=fam, n=nrow(X1), sey=sey, sef=sef, X1=X1, AX1=AX1)
-#   }  
-# }
+
 
 check_dropped_subjects <- function(res, formula) {
-  if (!is.null(na.action(res))) { 
+  if (!is.null(stats::na.action(res))) { 
     stop(paste0("Some observations in '", 
-                capture.output(print(formula)), 
+                utils::capture.output(print(formula)), 
                 "' are missing...\n Complete data in the null model is required. Please remove, and subset genotypes accordingly"))
   }
   invisible(NULL)  
@@ -408,7 +388,14 @@ calculate_maf <- function(Z, male=NULL) {
 
 # the two tapply statements could easily be combined but then you would have a logical
 # check for each gene as to which calculation to use.  
-calculate_cov <- function(Z, m, SNPInfo, snpNames, aggregateBy, monos, kins) {
+calculate_cov <- function(Z, m, SNPInfo, snpNames, aggregateBy, monos, kins, verbose = FALSE) {
+  env <- environment()
+  ngenes <- length(unique(SNPInfo[,aggregateBy]))
+  if ( isTRUE(identical(verbose, TRUE)) ) {
+    cat("\n Calculating covariance... Progress:\n")
+    pb <- utils::txtProgressBar(min = 0, max = ngenes, style = 3)
+    pb.i <- 0
+  }
   
   if (m$family == "cox") {
     X <- m$X
@@ -417,21 +404,30 @@ calculate_cov <- function(Z, m, SNPInfo, snpNames, aggregateBy, monos, kins) {
       if(length(inds) > 0L){
         mcov <- matrix(0,length(snp.names),length(snp.names), dimnames=list(snp.names, snp.names))
         Z0 <- Z[, inds, drop=FALSE]
-        zvar <- apply(Z0, 2, var)
+        zvar <- apply(Z0, 2, stats::var)
         mod1 <- coxlr.fit(cbind(Z0[,zvar != 0 ],X), m$y, m$strata, NULL,
                           init=c(rep(0, ncol(Z0[,zvar !=0, drop=FALSE])), m$coef),
                           coxph.control(iter.max=0), NULL, "efron", m$rn)
-        mcov[inds[zvar != 0], inds[zvar != 0]] <- 
-          tryCatch(ginv_s(mod1$var[1:sum(zvar != 0), 1:sum(zvar != 0), drop=FALSE]),
-          error=function(e){
-            cov(Z0[m$y[,"status"]==1,zvar !=0,drop=FALSE])*(sum(m$y[,"status"]==1)-1)
-          })
-        forceSymmetric(Matrix(mcov,sparse=TRUE))
+        
+        if ( isTRUE(identical(verbose, TRUE)) ) {
+          assign("pb.i", get("pb.i",env)+1,env)
+          if(get("pb.i", env)%%ceiling(ngenes/100) == 0) {
+            utils::setTxtProgressBar(get("pb",env), get("pb.i",env))
+          } 		  
+        }
+        
+        mcov[inds[zvar != 0], inds[zvar != 0]] <- if(ncol(X) == 0) mod1$var_i
+          else mod1$var_i[1:sum(zvar !=0),1:sum(zvar !=0),drop=FALSE] - 
+          mod1$var_i[1:sum(zvar !=0),(1+sum(zvar !=0)):(ncol(X)+sum(zvar !=0)),drop=FALSE] %*% crossprod(ginv_s(
+          mod1$var_i[(1+sum(zvar !=0)):(ncol(X)+sum(zvar !=0)),(1+sum(zvar !=0)):(ncol(X)+sum(zvar !=0)),drop=FALSE]), 
+          mod1$var_i[(1+sum(zvar !=0)):(ncol(X)+sum(zvar !=0)),1:sum(zvar !=0),drop=FALSE])
+        Matrix::forceSymmetric(Matrix(mcov,sparse=TRUE))
       } else {
         Matrix(0, nrow=length(snp.names), ncol=length(snp.names), dimnames=list(snp.names, snp.names), sparse=TRUE)
       }
     },simplify = FALSE)
     
+    if ( isTRUE(identical(verbose, TRUE)) ) { close(pb) }
     re
     
   } else {
@@ -450,18 +446,28 @@ calculate_cov <- function(Z, m, SNPInfo, snpNames, aggregateBy, monos, kins) {
         } else {
           mcov[inds, inds] <- crossprod(Z0) - crossprod(Z0,X1)%*%(AX1%*%Z0)
         }
+        
+        if ( isTRUE(identical(verbose, TRUE)) ) {
+          assign("pb.i", get("pb.i",env)+1,env)
+          if(get("pb.i", env)%%ceiling(ngenes/100) == 0) {
+            utils::setTxtProgressBar(get("pb",env), get("pb.i",env))
+          } 		  
+        }
+        
         mono_snps <- intersect(inds, monos)
         mcov[mono_snps , ] <- 0
         mcov[ , mono_snps] <- 0
-        forceSymmetric(Matrix(mcov,sparse=TRUE))     
+        Matrix::forceSymmetric(Matrix(mcov,sparse=TRUE))     
       } else{
         Matrix(0, nrow=length(snp.names), ncol=length(snp.names), dimnames=list(snp.names, snp.names), sparse=TRUE)
       }
     },simplify = FALSE)
     
+    if ( isTRUE(identical(verbose, TRUE)) ) { close(pb) }
     re
   }
 }
+
 
 fill_values <- function(x, r) { 
   cmn <- intersect(names(x), names(r)) 

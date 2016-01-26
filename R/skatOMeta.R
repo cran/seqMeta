@@ -1,4 +1,3 @@
-
 #' @title Combine SKAT-O analyses from one or more studies.
 #'   
 #' @description Takes as input `seqMeta` objects (from e.g.
@@ -153,7 +152,7 @@
 #' }
 #' 
 #' @export
-skatOMeta <- function(..., SNPInfo=NULL, skat.wts=function(maf){dbeta(maf,1,25)}, burden.wts=function(maf){as.numeric(maf <= 0.01) }, rho=c(0,1), method=c("integration", "saddlepoint", "liu"), snpNames="Name", aggregateBy="gene", mafRange=c(0,0.5), verbose=FALSE) {
+skatOMeta <- function(..., SNPInfo=NULL, skat.wts=function(maf){stats::dbeta(maf,1,25)}, burden.wts=function(maf){as.numeric(maf <= 0.01) }, rho=c(0,1), method=c("integration", "saddlepoint", "liu"), snpNames="Name", aggregateBy="gene", mafRange=c(0,0.5), verbose=FALSE) {
 	cl <- match.call(expand.dots = FALSE)
 	if(is.null(SNPInfo)){ 
 		warning("No SNP Info file provided: loading the Illumina HumanExome BeadChip. See ?SNPInfo for more details")
@@ -168,7 +167,7 @@ skatOMeta <- function(..., SNPInfo=NULL, skat.wts=function(maf){dbeta(maf,1,25)}
 	method <- match.arg(method)
    #if( !(method %in% c("davies","farebrother","imhof","liu")) ) stop("Method specified is not valid! See documentation")
 	
-	genelist <- na.omit(unique(SNPInfo[,aggregateBy]))
+	genelist <- stats::na.omit(unique(SNPInfo[,aggregateBy]))
 	cohortNames <- lapply(cl[[2]],as.character)
 	ncohort <- length(cohortNames)
 	
@@ -184,7 +183,7 @@ skatOMeta <- function(..., SNPInfo=NULL, skat.wts=function(maf){dbeta(maf,1,25)}
 	
     if(verbose){
     	cat("\n Meta Analyzing... Progress:\n")
-    	pb <- txtProgressBar(min = 0, max = length(genelist), style = 3)
+    	pb <- utils::txtProgressBar(min = 0, max = length(genelist), style = 3)
     	pb.i <- 0
     }
     ri <- 0
@@ -281,7 +280,7 @@ skatOMeta <- function(..., SNPInfo=NULL, skat.wts=function(maf){dbeta(maf,1,25)}
 		      }
 		      p <- tmpP$p
 		    } else {
-		      p <- ifelse(length(lambda) == 1 & all(lambda > 0), pchisq(Q.skat/lambda,df=1,lower.tail=FALSE),1)
+		      p <- ifelse(length(lambda) == 1 & all(lambda > 0), stats::pchisq(Q.skat/lambda,df=1,lower.tail=FALSE),1)
 		      res.numeric[ri,"errflag"] = 0
 		    }
 		    res.numeric[ri,"pmin"] = res.numeric[ri,"p"] = p
@@ -307,7 +306,7 @@ skatOMeta <- function(..., SNPInfo=NULL, skat.wts=function(maf){dbeta(maf,1,25)}
 		res.numeric[ri,"nmiss"] = sum(n.miss, na.rm =T)
 		if(verbose){
 			pb.i <- pb.i+1
-			setTxtProgressBar(pb, pb.i)
+			utils::setTxtProgressBar(pb, pb.i)
 		}
 	}
 	if(verbose) close(pb)
@@ -368,8 +367,8 @@ skatO_getp <- function(U,V, R, w, rho,method = "davies", gene=NULL){
 			
 	for(i in 1:length(rho)){					
 		sat <- satterthwaite(lambdas[[i]],rep(1,length(lambdas[[i]])))
-		upper <- qchisq(minp/20,df=sat$df,lower.tail=FALSE)*sat$scale		
-		tmpT <- try(uniroot(function(x){pchisqsum2(x,lambda=lambdas[[i]],method=method,acc=1e-5)$p- minp }, interval=c(1e-10,upper))$root, silent = TRUE)
+		upper <- stats::qchisq(minp/20,df=sat$df,lower.tail=FALSE)*sat$scale		
+		tmpT <- try(stats::uniroot(function(x){pchisqsum2(x,lambda=lambdas[[i]],method=method,acc=1e-5)$p- minp }, interval=c(1e-10,upper))$root, silent = TRUE)
 		if(class(tmpT) == "try-error"){
 			#warning(paste0("Problem finding quantiles in gene ", gene, ", p-value may not be accurate"))
 			Ts[i] <- Qs[i]
@@ -408,11 +407,11 @@ skatO_getp <- function(U,V, R, w, rho,method = "davies", gene=NULL){
 	}
 			
 	if(any(lambda.cond > 0)){
-		integrand <- function(x){dchisq(x,1)*Fcond(x*v22,method=method)}
-		integral <- try(integrate(Vectorize(integrand),lower=0,upper=Inf, subdivisions = 200L, rel.tol=min(minp/100,1e-4)), silent = TRUE)
+		integrand <- function(x){stats::dchisq(x,1)*Fcond(x*v22,method=method)}
+		integral <- try(stats::integrate(Vectorize(integrand),lower=0,upper=Inf, subdivisions = 200L, rel.tol=min(minp/100,1e-4)), silent = TRUE)
 		if (class(integral) == "try-error" ) {
-       		integrand <- function(x){dchisq(x,1)*Fcond(x*v22,method="liu")}
-       		integral <- integrate(Vectorize(integrand),lower=0,upper=Inf)
+       		integrand <- function(x){stats::dchisq(x,1)*Fcond(x*v22,method="liu")}
+       		integral <- stats::integrate(Vectorize(integrand),lower=0,upper=Inf)
        		errflag <- 3
        	} else {
        		if(integral$message != "OK") errflag <- 2
