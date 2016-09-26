@@ -2,7 +2,7 @@
 seqMeta
 =======
 
-[![Build Status](https://travis-ci.org/DavisBrian/seqMeta.svg?branch=master)](https://travis-ci.org/DavisBrian) [![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/DavisBrian/seqMeta?branch=master)](https://ci.appveyor.com/project/DavisBrian/seqMeta) [![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/seqMeta)](http://cran.r-project.org/web/packages/seqMeta)
+[![Build Status](https://travis-ci.org/DavisBrian/seqMeta.svg?branch=master)](https://travis-ci.org/DavisBrian) [![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/DavisBrian/seqMeta?branch=master)](https://ci.appveyor.com/project/DavisBrian/seqMeta) [![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/seqMeta)](https://CRAN.R-project.org/package=seqMeta)
 
 Meta-Analysis of Region-Based Tests of Rare DNA Variants
 
@@ -28,6 +28,13 @@ You can install:
 
 If you encounter a clear bug, please file a minimal reproducible example on [github](https://github.com/DavisBrian/seqMeta/issues).
 
+seqMet 1.6.6
+------------
+
+-   Export c.seqMeta
+-   Fixed version 1.4.2 of CompQuadForm changing the *name* of the result
+-   Fixed canonical form CRAN url
+
 seqMeta 1.6.5
 -------------
 
@@ -51,7 +58,7 @@ seqMeta 1.6.0
 -   Monomorphic snps with caf != 0 were handled incorrectly.
 -   Binomial models when genotypes imputed outside of seqMeta did not match when models were imputed by seqMeta. Very slight differences in the covariance structure.
 -   Replaced `any(is.na(Z))` with `anyNA(Z)`
--   Range test now checks that genotypes are [0, 2].
+-   Range test now checks that genotypes are \[0, 2\].
 -   SNPInfo in seqMetaExamples had incorrect type of snpNames and aggregateBy.
 -   Automatically convert (with warning) aggregateBy and snpName columns to type character if they are not already.
 -   Added new function prepScores2
