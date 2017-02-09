@@ -1,3 +1,8 @@
+seqMeta 1.6.7
+==================
+
+-   CRAN win-oldrel build error fixed (#30)
+
 seqMeta 1.6.6
 ==================
 

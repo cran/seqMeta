@@ -28,8 +28,13 @@ You can install:
 
 If you encounter a clear bug, please file a minimal reproducible example on [github](https://github.com/DavisBrian/seqMeta/issues).
 
-seqMet 1.6.6
-------------
+seqMeta 1.6.7
+-------------
+
+-   CRAN win-oldrel build error fixed.
+
+seqMeta 1.6.6
+-------------
 
 -   Export c.seqMeta
 -   Fixed version 1.4.2 of CompQuadForm changing the *name* of the result

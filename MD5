@@ -1,11 +1,11 @@
-44040e88d9d7139e13d6bf75645d45d6 *DESCRIPTION
+5486f62b277679784149833c9fb504e3 *DESCRIPTION
 dbf9e4764e71b6fe73f09e008d9bc363 *NAMESPACE
-d5ce8f340de7110beebd927afa9c667f *NEWS.md
+f964878ad3b4cb57b51283db15f3b69b *NEWS.md
 414d05b3a3b4f1cf236084f7068f6aa5 *R/burdenMeta.R
 29bf955c211bac7bf5fcfd1eb48dc1b4 *R/c.seqMeta.R
 4a451981b5fba463e9156baf234414b8 *R/check_format_skat.R
 ce04e2ab61c200ca6d099dde39b2351a *R/coxlr.fit.R
-32be3887c3eec54ec2c513ae10893d00 *R/pchisqsum2.R
+56a96a0aa8114060407969f5f0ada7f0 *R/pchisqsum2.R
 b0a2f447e9beff1fd10e2029c51380df *R/prepAdjust.R
 74a5a24383de6aeb946ba467f9931d29 *R/prepCox.R
 25293a0aa7df96d1d7122b0248728058 *R/prepScores.R
@@ -15,7 +15,7 @@ ce8fa1660757bc989666b26762dec92b *R/seqMeta.R
 de7530cd3e13d60ddf0f6f25be94ecfa *R/skatMeta.R
 f27f71815f042429d7b6258245057dc1 *R/skatOMeta.R
 76449e2169dd86683714ae9da9f908a1 *R/utils.R
-3b2656cc7f5049dff80bb0f9b5987452 *README.md
+c3d94e88c6b6afe93add73d685cb1e90 *README.md
 15647f4e55e7dda6364f24dd11ff78eb *build/vignette.rds
 792c676db9a932d1fb02f629bd3eaf0c *data/SNPInfo.rda
 24ddcb3525a99dfce3fee55b34868aa5 *data/datalist
